@@ -1,4 +1,6 @@
+// SIMPLE TEST - No imports, no dependencies
 export default function handler(req, res) {
+  // Basic CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -8,11 +10,7 @@ export default function handler(req, res) {
   }
 
   res.status(200).json({ 
-    status: '✅ SUCCESS!',
-    message: 'Your Pokémon API backend is working perfectly!',
-    data: {
-      version: '1.0.0',
-      environment: 'production'
-    }
+    message: 'SIMPLE TEST WORKS!',
+    timestamp: new Date().toISOString()
   });
 }

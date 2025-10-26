@@ -1,21 +1,17 @@
-import pokeAPI from '../../../lib/pokeapi';
-import TypeCalculator from '../../../lib/typeCalculator';
+// api/team/analyze.js
+import pokeAPI from '../../lib/pokeapi';
+import TypeCalculator from '../../lib/typeCalculator';
+import { setCorsHeaders, handleOptions } from '../../lib/cors';
 
 /**
  * API endpoint for team analysis
  */
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
+  // Set CORS headers
+  setCorsHeaders(res);
+  
+  // Handle OPTIONS request
+  if (handleOptions(req, res)) {
     return;
   }
 
@@ -34,14 +30,27 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Starting team analysis for:', team);
+    
     // Get Pokémon data for all team members
     const teamData = await Promise.all(
-      team.map(pokemonId => pokeAPI.getPokemon(pokemonId))
+      team.map(async (pokemonId) => {
+        try {
+          return await pokeAPI.getPokemon(pokemonId);
+        } catch (error) {
+          console.error(`Failed to fetch Pokémon ${pokemonId}:`, error.message);
+          throw new Error(`Failed to fetch Pokémon ${pokemonId}`);
+        }
+      })
     );
+
+    console.log('Fetched team data, getting type relationships...');
 
     // Get type relationships for analysis
     const typeRelations = await pokeAPI.getTypeRelationships();
     const calculator = new TypeCalculator(typeRelations);
+
+    console.log('Performing team analysis...');
 
     // Perform team analysis
     const analysis = {
@@ -54,13 +63,29 @@ export default async function handler(req, res) {
         totalSpecialAttack: teamData.reduce((sum, p) => sum + (p.stats.find(s => s.name === 'special_attack')?.base_stat || 0), 0),
         totalSpecialDefense: teamData.reduce((sum, p) => sum + (p.stats.find(s => s.name === 'special_defense')?.base_stat || 0), 0),
         totalSpeed: teamData.reduce((sum, p) => sum + (p.stats.find(s => s.name === 'speed')?.base_stat || 0), 0),
-      }
+      },
+      teamMembers: teamData.map(p => ({
+        id: p.id,
+        name: p.name,
+        types: p.types.map(t => t.type.name)
+      }))
     };
+
+    console.log('Team analysis completed successfully');
 
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
     res.status(200).json(analysis);
   } catch (error) {
     console.error('Team analysis error:', error.message);
-    res.status(500).json({ error: 'Failed to analyze team' });
+    console.error('Error stack:', error.stack);
+    
+    // More specific error messages
+    if (error.message.includes('Failed to fetch Pokémon')) {
+      res.status(400).json({ error: error.message });
+    } else if (error.message.includes('type relationships')) {
+      res.status(500).json({ error: 'Failed to load type data for analysis' });
+    } else {
+      res.status(500).json({ error: 'Failed to analyze team: ' + error.message });
+    }
   }
 }

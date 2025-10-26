@@ -12,12 +12,12 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   if (!id) {
-    return res.status(400).json({ error: 'Pokémon ID is required. Use ?id=25' });
+    return res.status(400).json({ error: 'Pokémon ID parameter is required. Use /api/pokemon?id=25' });
   }
 
+  console.log(`Fetching Pokémon: ${id}`);
+
   try {
-    console.log(`[GET] Fetching Pokémon: ${id}`);
-    
     const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${id}`);
     const data = response.data;
 
@@ -41,20 +41,20 @@ export default async function handler(req, res) {
         is_hidden: ability.is_hidden
       })),
       height: data.height,
-      weight: data.weight,
-      base_experience: data.base_experience
+      weight: data.weight
     };
 
-    console.log(`[SUCCESS] Found Pokémon: ${pokemon.name}`);
-    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
     res.status(200).json(pokemon);
   } catch (error) {
-    console.error(`[ERROR] Failed to fetch Pokémon ${id}:`, error.message);
+    console.error(`Error fetching Pokémon ${id}:`, error.message);
     
     if (error.response?.status === 404) {
       res.status(404).json({ error: `Pokémon with ID ${id} not found` });
     } else {
-      res.status(500).json({ error: 'Failed to fetch Pokémon data' });
+      res.status(500).json({ 
+        error: 'Failed to fetch Pokémon data',
+        details: error.message 
+      });
     }
   }
 }

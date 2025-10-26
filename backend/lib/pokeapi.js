@@ -1,131 +1,68 @@
 import axios from 'axios';
 
 const POKEAPI_BASE = 'https://pokeapi.co/api/v2';
-
-// Simple in-memory cache for serverless functions
-const cache = new Map();
-const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+const RATE_LIMIT_DELAY = 100; // ms between requests
 
 class PokeAPIService {
-  /**
-   * Get Pokémon data by ID or name
-   * @param {string|number} idOrName - Pokémon identifier
-   * @returns {Object} Pokémon data
-   */
-  async getPokemon(idOrName) {
-    const cacheKey = `pokemon-${idOrName}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.data;
+  constructor() {
+    this.cache = new Map();
+    this.lastRequestTime = 0;
+  }
+
+  async makeRequest(url) {
+    // Rate limiting
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
+      await new Promise(resolve => 
+        setTimeout(resolve, RATE_LIMIT_DELAY - timeSinceLastRequest)
+      );
     }
 
     try {
-      const response = await axios.get(`${POKEAPI_BASE}/pokemon/${idOrName}`);
-      const pokemon = this.transformPokemonData(response.data);
-      
-      cache.set(cacheKey, {
-        data: pokemon,
-        timestamp: Date.now()
+      const response = await axios.get(url, {
+        timeout: 10000,
+        validateStatus: (status) => status < 500
       });
-      
+      this.lastRequestTime = Date.now();
+      return response;
+    } catch (error) {
+      throw new Error(`API request failed: ${error.message}`);
+    }
+  }
+
+  async getPokemon(idOrName) {
+    const cacheKey = `pokemon-${idOrName}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const response = await this.makeRequest(`${POKEAPI_BASE}/pokemon/${idOrName}`);
+      const pokemon = this.transformPokemonData(response.data);
+      this.setCached(cacheKey, pokemon);
       return pokemon;
     } catch (error) {
       console.error(`Error fetching Pokémon ${idOrName}:`, error.message);
-      throw error;
+      throw new Error(`Pokémon "${idOrName}" not found`);
     }
   }
 
-  /**
-   * Get type relationships data
-   * @returns {Object} Type effectiveness relationships
-   */
-  async getTypeRelationships() {
-    const cacheKey = 'type-relationships';
-    const cached = cache.get(cacheKey);
-    
+  getCached(key) {
+    const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return cached.data;
     }
-
-    try {
-      const typesResponse = await axios.get(`${POKEAPI_BASE}/type?limit=20`);
-      const types = typesResponse.data.results;
-
-      const typeRelations = {};
-      
-      await Promise.all(
-        types.map(async (type) => {
-          const typeData = await axios.get(type.url);
-          typeRelations[type.name] = {
-            double_damage_from: typeData.data.damage_relations.double_damage_from.map(t => t.name),
-            double_damage_to: typeData.data.damage_relations.double_damage_to.map(t => t.name),
-            half_damage_from: typeData.data.damage_relations.half_damage_from.map(t => t.name),
-            half_damage_to: typeData.data.damage_relations.half_damage_to.map(t => t.name),
-            no_damage_from: typeData.data.damage_relations.no_damage_from.map(t => t.name),
-            no_damage_to: typeData.data.damage_relations.no_damage_to.map(t => t.name),
-          };
-        })
-      );
-
-      cache.set(cacheKey, {
-        data: typeRelations,
-        timestamp: Date.now()
-      });
-      
-      return typeRelations;
-    } catch (error) {
-      console.error('Error fetching type relationships:', error.message);
-      throw error;
-    }
+    return null;
   }
 
-  /**
-   * Search Pokémon by name
-   * @param {string} query - Search query
-   * @param {number} limit - Maximum results
-   * @returns {Array} Search results
-   */
-  async searchPokemon(query, limit = 20) {
-    const cacheKey = `search-${query}-${limit}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-
-    try {
-      const response = await axios.get(`${POKEAPI_BASE}/pokemon?limit=1000`);
-      const allPokemon = response.data.results;
-
-      const filtered = allPokemon
-        .filter(pokemon => pokemon.name.includes(query.toLowerCase()))
-        .slice(0, limit);
-
-      const detailedResults = await Promise.all(
-        filtered.map(async (pokemon) => {
-          const res = await axios.get(pokemon.url);
-          return this.transformPokemonData(res.data);
-        })
-      );
-
-      cache.set(cacheKey, {
-        data: detailedResults,
-        timestamp: Date.now()
-      });
-
-      return detailedResults;
-    } catch (error) {
-      console.error('Error searching Pokémon:', error.message);
-      throw error;
-    }
+  setCached(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
   }
 
-  /**
-   * Transform raw API data to standardized format
-   * @param {Object} apiData - Raw Pokémon data from PokeAPI
-   * @returns {Object} Transformed Pokémon data
-   */
   transformPokemonData(apiData) {
     return {
       id: apiData.id,
@@ -133,14 +70,14 @@ class PokeAPIService {
       sprites: {
         front_default: apiData.sprites.front_default,
         front_shiny: apiData.sprites.front_shiny,
-        official_artwork: apiData.sprites.other['official-artwork']?.front_default,
+        official_artwork: apiData.sprites.other?.['official-artwork']?.front_default,
       },
       types: apiData.types.map(t => ({
         slot: t.slot,
         type: { name: t.type.name }
       })),
       stats: apiData.stats.map(stat => ({
-        name: stat.stat.name.replace('-', '_'),
+        name: this.normalizeStatName(stat.stat.name),
         base_stat: stat.base_stat,
         effort: stat.effort
       })),
@@ -152,6 +89,18 @@ class PokeAPIService {
       weight: apiData.weight,
       base_experience: apiData.base_experience
     };
+  }
+
+  normalizeStatName(statName) {
+    const statMap = {
+      'hp': 'hp',
+      'attack': 'attack',
+      'defense': 'defense',
+      'special-attack': 'special_attack',
+      'special-defense': 'special_defense',
+      'speed': 'speed'
+    };
+    return statMap[statName] || statName;
   }
 }
 

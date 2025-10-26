@@ -1,5 +1,9 @@
 import axios from 'axios';
 import { normalizePokemonData } from './pokemonData';
+import { createBattlePokemon } from './pokemonData';
+import { normalizeMove } from './moveData';
+import { normalizeAbility } from './abilityData';
+
 
 const API_BASE = 'https://pokemon-team-builder-backend.vercel.app/api';
 
@@ -159,6 +163,45 @@ export const pokemonAPI = {
       return null;
     }
   },
+  /**
+   * Get battle-ready Pokémon data (enhanced with levels, moves, etc.)
+   */
+  getBattlePokemon: async (id, options = {}) => {
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/${id}/battle`, { params: options });
+      return response.data;
+    } catch (error) {
+      console.error('Get battle Pokémon API error:', error);
+      return null;
+    }
+  },
+  
+  /**
+   * Get move data through our backend
+   */
+  getMove: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/moves/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get move API error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Get ability data through our backend
+   */
+  getAbility: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/abilities/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get ability API error:', error);
+      return null;
+    }
+  },
+
   
   /**
    * Get evolution chain for a Pokémon
