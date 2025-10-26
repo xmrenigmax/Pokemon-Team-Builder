@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #000000;
+    color: white;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .type-badge {
+    @apply px-3 py-1 rounded-full text-white font-bold text-sm uppercase shadow-lg border border-white/20;
+  }
+  
+  .pokemon-card {
+    @apply bg-[#1a1a1a] border border-[#7f1d1d]/30 rounded-xl shadow-2xl hover:shadow-[#ef4444]/20 transition-all duration-300;
+  }
+  
+  .team-slot {
+    @apply bg-[#141414] border-2 border-dashed border-[#991b1b]/30 rounded-2xl p-6 text-center min-h-[200px] flex items-center justify-center hover:border-[#ef4444]/50 transition-all duration-300;
+  }
+  
+  .nav-link {
+    @apply text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-all duration-300 hover:bg-[#7f1d1d]/30 border border-transparent hover:border-[#ef4444]/30;
+  }
+  
+  .btn-primary {
+    @apply bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 border-2 border-[#ef4444] hover:border-[#f87171] shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-secondary {
+    @apply bg-[#1a1a1a] hover:bg-[#141414] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 border-2 border-[#991b1b] hover:border-[#dc2626] shadow-lg;
+  }
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ef4444;
+}
+
+/* Drag and drop styles */
+.dnd-kit-drag-overlay {
+  opacity: 0.8;
+  transform: rotate(5deg);
+}
+
+.dnd-kit-drag-handle {
+  cursor: grab;
+}
+
+.dnd-kit-drag-handle:active {
+  cursor: grabbing;
+}

@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/test",
+      "dest": "/api/test.js"
+    },
+    {
+      "src": "/api/pokemon/search",
+      "dest": "/api/pokemon/search.js"
+    },
+    {
+      "src": "/api/pokemon/types",
+      "dest": "/api/pokemon/types.js"
+    },
+    {
+      "src": "/api/team/analyze",
+      "dest": "/api/team/analyze.js"
+    },
+    {
+      "src": "/api/pokemon/(.*)",
+      "dest": "/api/pokemon/[id].js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.js"
+    }
+  ]
+}
