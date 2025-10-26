@@ -440,7 +440,7 @@ const PokemonSettings = ({
   /**
    * Handle item change
    */
-  const handleItemChange = async (itemName) => {
+  const handleItemChange = (itemName) => {
     console.log('Changing item to:', itemName);
     const selectedItem = availableItems.find(item => item.name === itemName);
     const newOptions = { 
@@ -451,8 +451,8 @@ const PokemonSettings = ({
     
     onOptionsChange(newOptions);
     setHasChanges(true);
-    // Recalculate stats after item change
-    await calculateStatsPreview();
+    // Use debounced stat calculation
+    debouncedCalculateStats();
   };
 
   /**
@@ -584,33 +584,29 @@ const PokemonSettings = ({
   /**
    * Handle level change with validation
    */
-  const handleLevelChange = (event) => {
-    const level = event.target.value;
+  const handleLevelChange = (level) => {
     const newLevel = Math.max(1, Math.min(100, parseInt(level) || 50));
     
     // Update local state immediately for smooth UI
     onOptionsChange({ 
       ...options, 
       level: newLevel,
-      calculatedStats: {
-        ...(options.calculatedStats || {}),
+      calculatedStats: options.calculatedStats ? {
+        ...options.calculatedStats,
         level: newLevel
-      }
+      } : null
     });
     setHasChanges(true);
-    
-    // Debounce the actual stat calculation
-    debouncedCalculateStats();
   };
 
   /**
    * Handle nature change
    */
-  const handleNatureChange = async (nature) => {
+  const handleNatureChange = (nature) => {
     onOptionsChange({ ...options, nature });
     setHasChanges(true);
-    // Recalculate stats after nature change
-    await calculateStatsPreview();
+    // Use debounced stat calculation
+    debouncedCalculateStats();
   };
 
   /**
@@ -987,6 +983,14 @@ const BasicSettings = ({
   getNatureEffect,
   getSelectedItemEffect 
 }) => {
+  // Debounced level change handler
+  const debouncedLevelChange = useCallback(
+    debounce((value) => {
+      onLevelChange(value);
+    }, 100),
+    [onLevelChange]
+  );
+
   const getFilteredItems = () => {
     if (!availableItems.length) return {};
     
@@ -1016,14 +1020,20 @@ const BasicSettings = ({
         {/* Level Setting */}
         <div className="space-y-4">
           <label className="block text-white font-semibold">
-            Level: <span className="text-[#ef4444]">{options.level}</span>
+            Level: <span className="text-[#ef4444]">{options.level || 50}</span>
           </label>
           <input
             type="range"
             min="1"
             max="100"
             value={options.level || 50}
-            onChange={handleLevelChange}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Update immediately for smooth UI
+              onLevelChange(value);
+              // Debounce the actual stat calculation
+              debouncedLevelChange(value);
+            }}
             className="w-full h-2 bg-[#141414] rounded-lg appearance-none cursor-pointer slider-thumb"
           />
           <div className="flex justify-between text-xs text-gray-400 px-2">
@@ -1037,7 +1047,7 @@ const BasicSettings = ({
         <div className="space-y-3">
           <label className="block text-white font-semibold">Nature</label>
           <select
-            value={options.nature}
+            value={options.nature || 'hardy'}
             onChange={(e) => onNatureChange(e.target.value)}
             className="w-full bg-[#141414] border border-[#7f1d1d]/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#ef4444]/50 transition-colors"
           >
@@ -1048,7 +1058,7 @@ const BasicSettings = ({
             ))}
           </select>
           <div className="text-xs text-gray-400 text-center">
-            {getNatureEffect(options.nature)}
+            {getNatureEffect(options.nature || 'hardy')}
           </div>
         </div>
 
