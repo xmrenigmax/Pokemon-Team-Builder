@@ -73,7 +73,8 @@ const PokemonSettings = ({
   onOptionsChange, 
   onAdd, 
   onClose, 
-  isEditing = false 
+  isEditing = false,
+  teamIndex
 }) => {
   // State for moves management
   const [allMoves, setAllMoves] = useState([]);
@@ -93,10 +94,15 @@ const PokemonSettings = ({
   const [loadingForms, setLoadingForms] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-
+  const [localOptions, setLocalOptions] = useState(options);
   /**
    * Load all required data when component mounts or Pokémon changes
    */
+
+  useEffect(() => {
+    setLocalOptions(options);
+  }, [options]);
+
   useEffect(() => {
     if (!pokemon?.id) return;
 
@@ -161,19 +167,26 @@ const PokemonSettings = ({
    * Track changes in options and update stats
    */
   useEffect(() => {
-    // Set hasChanges to true when any option changes (except initial load)
-    if (allMoves.length > 0) {
-      setHasChanges(true);
+  // Set hasChanges to true when any option changes (except initial load)
+  if (allMoves.length > 0) {
+    setHasChanges(true);
+    // For team Pokémon, update the context immediately for dynamic updates
+    if (isEditing && pokemon.teamIndex !== undefined) {
+      // This ensures team Pokémon get updated in real-time
+      debouncedTeamUpdate();
     }
-  }, [options, selectedForm]);
+  }
+}, [options, selectedForm]);
 
   // Debounced version of calculateStatsPreview
-  const debouncedCalculateStats = useCallback(
-    debounce(async () => {
-      await calculateStatsPreview();
-    }, 100),
-    [pokemon, selectedForm, options]
-  );
+  const debouncedTeamUpdate = useCallback(
+  debounce(() => {
+    if (isEditing && pokemon.teamIndex !== undefined && onOptionsChange) {
+      onOptionsChange(options, true); // Pass true to indicate immediate update
+    }
+  }, 300),
+  [options, isEditing, pokemon?.teamIndex, onOptionsChange]
+);
 
   /**
    * Load all moves the Pokémon can learn
@@ -437,21 +450,29 @@ const PokemonSettings = ({
     await calculateStatsPreview();
   };
 
+  const handleOptionsChange = useCallback((newOptions) => {
+    setLocalOptions(newOptions);
+    setHasChanges(true);
+    
+    // If this is a team Pokémon, update immediately
+    if (isEditing && teamIndex !== undefined) {
+      onOptionsChange(newOptions, true);
+    } else {
+      onOptionsChange(newOptions);
+    }
+  }, [isEditing, teamIndex, onOptionsChange]);
+
   /**
    * Handle item change
    */
   const handleItemChange = (itemName) => {
-    console.log('Changing item to:', itemName);
     const selectedItem = availableItems.find(item => item.name === itemName);
     const newOptions = { 
-      ...options, 
+      ...localOptions, 
       item: itemName,
       itemData: selectedItem 
     };
-    
-    onOptionsChange(newOptions);
-    setHasChanges(true);
-    // Use debounced stat calculation
+    handleOptionsChange(newOptions);
     debouncedCalculateStats();
   };
 
@@ -543,8 +564,9 @@ const PokemonSettings = ({
         ...options,
         calculatedStats: battleData?.calculatedStats
       });
+
       console.log('Stats preview calculated:', battleData?.calculatedStats);
-      
+      onOptionsChange(updatedOptions);
     } catch (error) {
       console.error('Error calculating stats preview:', error);
       // Set fallback stats based on base stats
@@ -586,26 +608,19 @@ const PokemonSettings = ({
    */
   const handleLevelChange = (level) => {
     const newLevel = Math.max(1, Math.min(100, parseInt(level) || 50));
-    
-    // Update local state immediately for smooth UI
-    onOptionsChange({ 
-      ...options, 
-      level: newLevel,
-      calculatedStats: options.calculatedStats ? {
-        ...options.calculatedStats,
-        level: newLevel
-      } : null
-    });
-    setHasChanges(true);
+    const newOptions = { 
+      ...localOptions, 
+      level: newLevel
+    };
+    handleOptionsChange(newOptions);
   };
 
   /**
    * Handle nature change
    */
-  const handleNatureChange = (nature) => {
-    onOptionsChange({ ...options, nature });
-    setHasChanges(true);
-    // Use debounced stat calculation
+   const handleNatureChange = (nature) => {
+    const newOptions = { ...localOptions, nature };
+    handleOptionsChange(newOptions);
     debouncedCalculateStats();
   };
 
@@ -762,7 +777,7 @@ const PokemonSettings = ({
 
             {/* Basic Settings */}
             <BasicSettings 
-              options={options}
+              options={localOptions}
               onLevelChange={handleLevelChange}
               onNatureChange={handleNatureChange}
               onItemChange={handleItemChange}
@@ -775,7 +790,7 @@ const PokemonSettings = ({
 
             {/* Moves Section */}
             <MovesSection 
-              options={options}
+              options={localOptions}
               availableMoves={availableMoves}
               filteredMoves={filteredMoves}
               showMoves={showMoves}
@@ -795,7 +810,7 @@ const PokemonSettings = ({
           <PreviewPanel 
             statsPreview={statsPreview}
             selectedForm={selectedForm}
-            options={options}
+            options={localOptions}
             availableItems={availableItems}
             pokemon={pokemon}
             onAdd={onAdd}

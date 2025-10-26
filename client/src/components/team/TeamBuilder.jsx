@@ -105,22 +105,26 @@ const TeamBuilder = () => {
    * Updates Pokémon settings with new options
    * @param {Object} updatedOptions - New Pokémon configuration
    */
-  const handleSettingsUpdate = (updatedOptions) => {
-    if (editingIndex !== null && team[editingIndex]) {
-      updatePokemon(editingIndex, {
-        ...updatedOptions,
-        // Preserve existing properties including form data
-        id: team[editingIndex].id,
-        name: team[editingIndex].name,
-        sprites: team[editingIndex].sprites,
-        types: team[editingIndex].types,
-        _isShiny: team[editingIndex]._isShiny,
-        // Make sure form data is preserved from updatedOptions
-        form: updatedOptions.form || team[editingIndex].form,
-        formName: updatedOptions.formName || team[editingIndex].formName
-      });
-    }
-  };
+  const handleSettingsUpdate = useCallback((updatedOptions, immediateUpdate = false) => {
+  if (editingIndex !== null && team[editingIndex]) {
+    const updatedPokemon = {
+      ...team[editingIndex],
+      ...updatedOptions,
+      // Preserve existing properties including form data
+      id: team[editingIndex].id,
+      name: team[editingIndex].name,
+      sprites: team[editingIndex].sprites,
+      types: team[editingIndex].types,
+      _isShiny: team[editingIndex]._isShiny,
+      // Make sure form data is preserved from updatedOptions
+      form: updatedOptions.form || team[editingIndex].form,
+      formName: updatedOptions.formName || team[editingIndex].formName
+    };
+
+    // Update immediately for real-time feedback
+    updatePokemon(editingIndex, updatedPokemon);
+  }
+}, [editingIndex, team, updatePokemon]);
 
   /**
    * Closes Pokémon settings modal
@@ -263,22 +267,23 @@ const TeamBuilder = () => {
 
       {/* Pokémon Settings Modal for Editing */}
       {isSettingsOpen && editingPokemon && (
-        <PokemonSettings
-          pokemon={editingPokemon}
-          options={{
-            level: editingPokemon.level || 50,
-            nature: editingPokemon.nature || 'hardy',
-            moves: editingPokemon.moves || [],
-            item: editingPokemon.item || '',
-            itemData: editingPokemon.itemData || null,
-            form: editingPokemon.form || null,
-            formName: editingPokemon.formName || null
-          }}
-          onOptionsChange={handleSettingsUpdate}
-          onAdd={handleSettingsClose}
-          onClose={handleSettingsClose}
-          isEditing={true}
-        />
+      <PokemonSettings
+        pokemon={{ ...editingPokemon, teamIndex: editingIndex }}
+        options={{
+          level: editingPokemon.level || 50,
+          nature: editingPokemon.nature || 'hardy',
+          moves: editingPokemon.moves || [],
+          item: editingPokemon.item || '',
+          itemData: editingPokemon.itemData || null,
+          form: editingPokemon.form || null,
+          formName: editingPokemon.formName || null,
+          calculatedStats: editingPokemon.calculatedStats || {}
+        }}
+        onOptionsChange={handleSettingsUpdate}
+        onAdd={handleSettingsClose}
+        onClose={handleSettingsClose}
+        isEditing={true}
+      />
       )}
     </>
   );
