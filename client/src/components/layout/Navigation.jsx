@@ -9,6 +9,7 @@ const Navigation = () => {
     { path: '/team-builder', label: 'Team Builder' },
     { path: '/pokedex', label: 'Pokédex' },
     { path: '/types', label: 'Types' },
+    { path: '/battle-sim', label: 'Simulator'}
   ]
 
   return (

@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage'
 import TeamBuilderPage from './pages/TeamBuilderPage'
 import PokedexPage from './pages/PokedexPage'
 import TypeShowcasePage from './pages/TypeShowcasePage'
+import BattleSimulatorPage from './pages/BattleSimulatorPage'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/team-builder" element={<TeamBuilderPage />} />
             <Route path="/pokedex" element={<PokedexPage />} />
             <Route path="/types" element={<TypeShowcasePage />} />
+            <Route path="/battle-sim" element={<BattleSimulatorPage/>}/>
           </Routes>
         </Layout>
       </Router>
