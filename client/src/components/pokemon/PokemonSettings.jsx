@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Plus, ChevronDown, ChevronUp, Search, Lock, Package, Zap, Sparkles, Moon, Sun } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronUp, Search, Lock, Package, Zap, Sparkles, Moon, Sun, Heart, Sword, Shield, Gauge } from 'lucide-react';
 import { pokemonAPI } from '../../utils/api';
 
 /**
