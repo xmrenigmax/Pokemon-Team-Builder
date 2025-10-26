@@ -1,27 +1,17 @@
+
 import React from 'react';
-import { X, Sparkles, Menu, GripVertical } from 'lucide-react';
+import { X, Sparkles, Menu, GripVertical, Settings } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { 
   getPokemonSprite, 
   getPokemonShinySprite, 
-  getPokemonName, 
-  getPokemonTypes, 
-  getPokemonHP,
+  getPokemonDisplayName, 
+  getPokemonTypes,
   getIsShiny 
 } from '../../utils/pokemonData';
 
-/**
- * Sortable team slot component for displaying Pokémon in team
- * @param {Object} props - Component props
- * @param {string} props.id - Unique ID for sortable
- * @param {number} props.index - Slot index
- * @param {Object} props.pokemon - Pokémon data
- * @param {Function} props.onRemove - Function to remove Pokémon
- * @param {Function} props.onShinyToggle - Function to toggle shiny state
- * @param {Function} props.onInfoOpen - Function to open info modal
- */
-const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
+const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen, onEdit }) => {
   const {
     attributes,
     listeners,
@@ -39,9 +29,6 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
     transition: transition || 'transform 200ms ease',
   };
 
-  /**
-   * Handle shiny toggle click
-   */
   const handleShinyClick = () => {
     onShinyToggle();
   };
@@ -52,7 +39,7 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
       <div 
         ref={setNodeRef}
         style={style}
-        className="team-slot group relative"
+        className="team-slot group relative bg-[#141414] border-2 border-dashed border-[#7f1d1d]/30 rounded-xl p-4 text-center hover:border-[#ef4444]/50 transition-colors"
       >
         <div className="text-center">
           <div className="text-4xl text-gray-500 mb-2">+</div>
@@ -64,14 +51,14 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
   }
 
   const isShiny = getIsShiny(pokemon);
-  const hpStat = getPokemonHP(pokemon);
   const currentSprite = isShiny ? getPokemonShinySprite(pokemon) : getPokemonSprite(pokemon);
+  const displayName = getPokemonDisplayName(pokemon);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`pokemon-card group relative ${
+      className={`pokemon-card group relative bg-[#141414] border border-[#7f1d1d]/20 rounded-xl p-4 ${
         isDragging 
           ? 'opacity-60 scale-105 z-50 shadow-2xl' 
           : 'hover:scale-105 transition-transform duration-200'
@@ -100,6 +87,13 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
           <Sparkles size={12} />
         </button>
         <button
+          onClick={() => onEdit(pokemon, index)}
+          className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded p-1 transition-colors"
+          title="Edit Pokémon"
+        >
+          <Settings size={12} />
+        </button>
+        <button
           onClick={() => onInfoOpen(pokemon)}
           className="bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded p-1 transition-colors"
           title="View Details"
@@ -119,26 +113,33 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
       <div className="flex justify-center mb-3 pt-2">
         <img
           src={currentSprite}
-          alt={getPokemonName(pokemon)}
-          className="w-20 h-20 object-contain"
-          key={`sprite-${pokemon.id}-${isShiny}`} // Force re-render when shiny changes
+          alt={displayName}
+          className="w-16 h-16 object-contain"
+          key={`sprite-${pokemon.id}-${isShiny}-${pokemon.formName || 'base'}`}
         />
       </div>
 
-      {/* Pokémon Name */}
-      <h3 className="text-white font-bold text-center capitalize mb-2">
-        {getPokemonName(pokemon)}
+      {/* Pokémon Name & Level - USE displayName */}
+      <h3 className="text-white font-bold text-center capitalize mb-1">
+        {displayName}
         {isShiny && <span className="text-[#fbbf24] ml-1">✨</span>}
       </h3>
+      
+      {/* Level Badge */}
+      <div className="text-center mb-2">
+        <span className="bg-[#ef4444] text-white text-xs px-2 py-1 rounded-full">
+          Lv. {pokemon.level || 50}
+        </span>
+      </div>
 
-      {/* Types */}
+      {/* Types - This will now show form types */}
       <div className="flex justify-center gap-1 mb-2">
         {getPokemonTypes(pokemon).map((typeInfo) => {
           const typeName = typeInfo.type?.name || typeInfo.name || 'unknown';
           return (
             <span
               key={typeName}
-              className={`type-badge bg-${typeName} text-xs px-2 py-1`}
+              className={`type-badge bg-${typeName} text-xs px-2 py-0.5`}
             >
               {typeName}
             </span>
@@ -146,10 +147,48 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
         })}
       </div>
 
-      {/* Stats Summary */}
-      <div className="text-xs text-gray-400 text-center">
-        <p>HP: {hpStat}</p>
-      </div>
+      {/* Ability */}
+      {pokemon.ability && (
+        <div className="text-center mb-2">
+          <span className="bg-[#3b82f6] text-white text-xs px-2 py-1 rounded-full capitalize">
+            {pokemon.ability}
+          </span>
+        </div>
+      )}
+
+      {/* Item */}
+      {pokemon.item && (
+        <div className="text-center mb-2">
+          <span className="bg-[#10b981] text-white text-xs px-2 py-1 rounded-full capitalize">
+            {pokemon.item.replace(/-/g, ' ')}
+          </span>
+        </div>
+      )}
+
+      {/* Form Badge - ADD THIS SECTION */}
+      {pokemon.formName && pokemon.formName !== pokemon.name && (
+        <div className="text-center mb-2">
+          <span className="bg-[#8b5cf6] text-white text-xs px-2 py-1 rounded-full capitalize">
+            {pokemon.formName.replace(`${pokemon.name}-`, '').replace(/-/g, ' ')}
+          </span>
+        </div>
+      )}
+
+      {/* Moves Preview */}
+      {pokemon.moves && pokemon.moves.filter(m => m.name !== '---').length > 0 && (
+        <div className="text-xs text-gray-400 text-center space-y-1">
+          {pokemon.moves.slice(0, 2).map((move, index) => 
+            move.name !== '---' && (
+              <div key={index} className="truncate" title={move.name}>
+                {move.name}
+              </div>
+            )
+          )}
+          {pokemon.moves.filter(m => m.name !== '---').length > 2 && (
+            <div className="text-gray-500">+{pokemon.moves.filter(m => m.name !== '---').length - 2} more</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

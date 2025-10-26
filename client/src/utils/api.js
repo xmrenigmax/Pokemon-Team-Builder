@@ -1,268 +1,76 @@
 import axios from 'axios';
-import { normalizePokemonData } from './pokemonData';
-import { createBattlePokemon } from './pokemonData';
-import { normalizeMove } from './moveData';
-import { normalizeAbility } from './abilityData';
-
 
 const API_BASE = 'https://pokemon-team-builder-backend.vercel.app/api';
 
-/**
- * Fetch evolution chain data from PokeAPI
- * @param {string|number} pokemonId - Pokémon ID
- * @returns {Object} Evolution chain data
- */
-const fetchEvolutionChainFromAPI = async (pokemonId) => {
-  try {
-    // Step 1: Get species data to find evolution chain URL
-    const speciesResponse = await axios.get(`https://pokeapi.co/api/v2/pokemon-species/${pokemonId}/`);
-    const speciesData = speciesResponse.data;
-    
-    // If no evolution chain exists, return single Pokémon
-    if (!speciesData.evolution_chain?.url) {
-      const pokemonResponse = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonId}/`);
-      return {
-        evolves: false,
-        chain: [normalizePokemonData(pokemonResponse.data)],
-        message: 'This Pokémon does not evolve.'
-      };
-    }
-    
-    // Step 2: Get the evolution chain data
-    const evolutionResponse = await axios.get(speciesData.evolution_chain.url);
-    const evolutionData = evolutionResponse.data;
-    
-    // Step 3: Parse the evolution chain to extract all Pokémon IDs
-    const extractPokemonIdsFromChain = (chain) => {
-      const ids = [];
-      
-      const traverseChain = (chainLink) => {
-        if (!chainLink) return;
-        
-        // Extract Pokémon ID from species URL
-        const speciesUrl = chainLink.species.url;
-        const pokemonId = speciesUrl.split('/').filter(part => part).pop();
-        
-        if (pokemonId && !ids.includes(parseInt(pokemonId))) {
-          ids.push(parseInt(pokemonId));
-        }
-        
-        // Recursively traverse evolves_to
-        if (chainLink.evolves_to?.length > 0) {
-          chainLink.evolves_to.forEach(nextEvolution => {
-            traverseChain(nextEvolution);
-          });
-        }
-      };
-      
-      traverseChain(chain);
-      return ids;
-    };
-    
-    const evolutionIds = extractPokemonIdsFromChain(evolutionData.chain);
-    
-    // If only one Pokémon in chain, it doesn't evolve
-    if (evolutionIds.length <= 1) {
-      const pokemonResponse = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonId}/`);
-      return {
-        evolves: false,
-        chain: [normalizePokemonData(pokemonResponse.data)],
-        message: 'This Pokémon does not evolve.'
-      };
-    }
-    
-    // Step 4: Fetch details for all Pokémon in the evolution chain
-    const evolutionPromises = evolutionIds.map(evoId => 
-      axios.get(`https://pokeapi.co/api/v2/pokemon/${evoId}/`)
-        .then(res => normalizePokemonData(res.data))
-        .catch(error => {
-          console.error(`Failed to fetch Pokémon ${evoId}:`, error.message);
-          return normalizePokemonData({ 
-            id: evoId, 
-            name: 'Unknown', 
-            sprites: { front_default: '/placeholder-pokemon.png', front_shiny: '/placeholder-pokemon.png' }
-          });
-        })
-    );
-    
-    const evolutionChain = await Promise.all(evolutionPromises);
-    
-    return {
-      evolves: true,
-      chain: evolutionChain,
-      current_pokemon_id: parseInt(pokemonId)
-    };
-    
-  } catch (error) {
-    console.error(`Error fetching evolution chain for ${pokemonId}:`, error.message);
-    throw error;
-  }
-};
-
-/**
- * Fallback evolution mapping for when PokeAPI fails
- * @param {number} id - Pokémon ID
- * @returns {Array} Evolution chain IDs
- */
-const getFallbackEvolutionChain = (id) => {
-  const evolutionMap = {
-    // Pikachu line
-    172: [172, 25, 26], // Pichu -> Pikachu -> Raichu
-    25: [172, 25, 26],
-    26: [172, 25, 26],
-    
-    // Starter lines
-    1: [1, 2, 3],     // Bulbasaur -> Ivysaur -> Venusaur
-    2: [1, 2, 3],
-    3: [1, 2, 3],
-    4: [4, 5, 6],     // Charmander -> Charmeleon -> Charizard
-    5: [4, 5, 6],
-    6: [4, 5, 6],
-    7: [7, 8, 9],     // Squirtle -> Wartortle -> Blastoise
-    8: [7, 8, 9],
-    9: [7, 8, 9],
-    
-    // Eevee line
-    133: [133, 134, 135, 136], // Eevee -> Vaporeon/Jolteon/Flareon
-    134: [133, 134],
-    135: [133, 135],
-    136: [133, 136],
-  };
-
-  return evolutionMap[id] || [id];
-};
-
 export const pokemonAPI = {
-  /**
-   * Search for Pokémon by name
-   * @param {string} query - Search query
-   * @returns {Array} Search results
-   */
-  search: async (query) => {
-    try {
-      const response = await axios.get(`${API_BASE}/pokemon/search?q=${query}`);
-      const results = response.data.results || [];
-      return results.map(normalizePokemonData);
-    } catch (error) {
-      console.error('API search error:', error);
-      return [];
-    }
-  },
-  
-  /**
-   * Get Pokémon by ID
-   * @param {string|number} id - Pokémon ID
-   * @returns {Object|null} Pokémon data
-   */
+  // Basic Pokémon data
   getPokemon: async (id) => {
     try {
-      const response = await axios.get(`${API_BASE}/pokemon/search?id=${id}`);
-      return normalizePokemonData(response.data);
+      const response = await axios.get(`${API_BASE}/pokemon?id=${id}`);
+      return response.data;
     } catch (error) {
       console.error('API getPokemon error:', error);
       return null;
     }
   },
-  /**
-   * Get battle-ready Pokémon data (enhanced with levels, moves, etc.)
-   */
+
+  // Battle-ready Pokémon data
   getBattlePokemon: async (id, options = {}) => {
     try {
-      const response = await axios.get(`${API_BASE}/pokemon/${id}/battle`, { params: options });
+      const params = new URLSearchParams({ id, ...options });
+      const response = await axios.get(`${API_BASE}/pokemon/battle?${params}`);
       return response.data;
     } catch (error) {
-      console.error('Get battle Pokémon API error:', error);
-      return null;
-    }
-  },
-  
-  /**
-   * Get move data through our backend
-   */
-  getMove: async (id) => {
-    try {
-      const response = await axios.get(`${API_BASE}/moves/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Get move API error:', error);
+      console.error('API getBattlePokemon error:', error);
       return null;
     }
   },
 
-  /**
-   * Get ability data through our backend
-   */
-  getAbility: async (id) => {
+  // Search
+  search: async (query) => {
     try {
-      const response = await axios.get(`${API_BASE}/abilities/${id}`);
-      return response.data;
+      const response = await axios.get(`${API_BASE}/pokemon/search?q=${query}`);
+      return response.data.results || [];
     } catch (error) {
-      console.error('Get ability API error:', error);
-      return null;
+      console.error('API search error:', error);
+      return [];
     }
   },
 
-  
-  /**
-   * Get evolution chain for a Pokémon
-   * @param {string|number} id - Pokémon ID
-   * @returns {Object} Evolution chain data
-   */
+  // Evolution chain
   getEvolutionChain: async (id) => {
     try {
-      // Try to get real evolution data from PokeAPI first
-      try {
-        const evolutionData = await fetchEvolutionChainFromAPI(id);
-        return evolutionData;
-      } catch (apiError) {
-        console.log(`PokeAPI failed, using fallback for ${id}:`, apiError.message);
-        // Fallback to hardcoded evolution data
-        const fallbackIds = getFallbackEvolutionChain(parseInt(id));
-        
-        // If only one Pokémon, it doesn't evolve
-        if (fallbackIds.length <= 1) {
-          const response = await axios.get(`${API_BASE}/pokemon/search?id=${id}`);
-          const pokemon = normalizePokemonData(response.data);
-          return {
-            evolves: false,
-            chain: [pokemon],
-            message: 'This Pokémon does not evolve.'
-          };
-        }
-        
-        // Fetch all Pokémon in the fallback evolution chain
-        const evolutionPromises = fallbackIds.map(evoId => 
-          axios.get(`${API_BASE}/pokemon/search?id=${evoId}`)
-            .then(res => normalizePokemonData(res.data))
-            .catch(() => normalizePokemonData({ id: evoId, name: 'Unknown' }))
-        );
-        
-        const evolutionChain = await Promise.all(evolutionPromises);
-        
-        return {
-          evolves: evolutionChain.length > 1,
-          chain: evolutionChain,
-          current_pokemon_id: parseInt(id),
-          note: 'Using fallback evolution data'
-        };
-      }
+      const response = await axios.get(`${API_BASE}/pokemon/evolution?id=${id}`);
+      return response.data;
     } catch (error) {
       console.error('API getEvolutionChain error:', error);
-      // Ultimate fallback - just return the current Pokémon
-      const response = await axios.get(`${API_BASE}/pokemon/search?id=${id}`);
-      const pokemon = normalizePokemonData(response.data);
-      return { 
-        evolves: false, 
-        chain: [pokemon],
-        error: 'Failed to load evolution data' 
-      };
+      return { evolves: false, chain: [] };
     }
   },
-  
-  /**
-   * Get type relationships data
-   * @returns {Object} Type relationships
-   */
+
+  // Move data
+  getMove: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/moves?id=${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('API getMove error:', error);
+      return null;
+    }
+  },
+
+  // Ability data
+  getAbility: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/abilities?id=${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('API getAbility error:', error);
+      return null;
+    }
+  },
+
+  // Type data
   getTypes: async () => {
     try {
       const response = await axios.get(`${API_BASE}/pokemon/types`);
@@ -272,19 +80,67 @@ export const pokemonAPI = {
       return {};
     }
   },
-  
-  /**
-   * Analyze team composition
-   * @param {Array} team - Team of Pokémon IDs
-   * @returns {Object} Team analysis
-   */
-  analyzeTeam: async (team) => {
+
+  // Get Pokémon learnset with actual levels
+  getPokemonLearnset: async (pokemonId) => {
     try {
-      const response = await axios.post(`${API_BASE}/team/analyze`, { team });
+      const response = await axios.get(`${API_BASE}/pokemon/learnset?id=${pokemonId}`);
       return response.data;
     } catch (error) {
-      console.error('API analyzeTeam error:', error);
-      return {};
+      console.error('API getPokemonLearnset error:', error);
+      throw error;
     }
-  }
+  },
+
+  getPokemonForms: async (pokemonId) => {
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/forms?id=${pokemonId}`);
+      return response.data;
+    } catch (error) {
+      console.error('API getPokemonForms error:', error);
+      // Return fallback data
+      return {
+        base_pokemon: pokemonId,
+        forms: {
+          standard: [{
+            id: pokemonId,
+            name: pokemonId,
+            form_name: pokemonId,
+            is_default: true,
+            types: ['normal'],
+            stats: [],
+            abilities: [],
+            sprites: { front_default: null, front_shiny: null, other: { 'official-artwork': null } },
+            form_details: { form_type: 'standard' }
+          }],
+          mega: [],
+          gigantamax: [],
+          regional: [],
+          special: []
+        }
+      };
+    }
+  },
+
+  getItems: async (category = null) => {
+    try {
+      const url = category 
+        ? `${API_BASE}/pokemon/items?category=${category}`
+        : `${API_BASE}/pokemon/items`;
+      const response = await axios.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('API getItems error:', error);
+      // Return fallback items
+      return {
+        items: [
+          { name: 'leftovers', category: 'held_items', effect: 'Restores HP each turn' },
+          { name: 'choice-band', category: 'held_items', effect: 'Boosts Attack but locks moves' },
+          { name: 'life-orb', category: 'held_items', effect: 'Boosts damage but costs HP' },
+          { name: 'focus-sash', category: 'held_items', effect: 'Survives one fatal hit' }
+        ],
+        total: 4
+      };
+    }
+  },
 };

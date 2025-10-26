@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   DndContext,
@@ -15,15 +16,16 @@ import {
 } from '@dnd-kit/sortable';
 import TeamSlot from './TeamSlot';
 import PokemonModal from '../pokemon/PokemonModal';
+import PokemonSettings from '../pokemon/PokemonSettings';
 import { usePokemon } from '../../contexts/PokemonContext';
 
-/**
- * Main team builder component with drag and drop functionality
- */
 const TeamBuilder = () => {
-  const { team, removeFromTeam, setTeam } = usePokemon();
+  const { team, removeFromTeam, setTeam, updatePokemon } = usePokemon();
   const [selectedPokemon, setSelectedPokemon] = useState(null);
+  const [editingPokemon, setEditingPokemon] = useState(null);
+  const [editingIndex, setEditingIndex] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -36,10 +38,6 @@ const TeamBuilder = () => {
     })
   );
 
-  /**
-   * Handle drag end event for team reordering
-   * @param {Object} event - Drag event
-   */
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
@@ -50,11 +48,9 @@ const TeamBuilder = () => {
 
     if (activeId === overId) return;
 
-    // Extract indices from IDs
     const activeIndex = parseInt(activeId.split('-')[1]);
     const overIndex = parseInt(overId.split('-')[1]);
 
-    // Only proceed if both indices are valid and within team bounds
     if (!isNaN(activeIndex) && !isNaN(overIndex) && 
         activeIndex >= 0 && activeIndex < team.length &&
         overIndex >= 0 && overIndex < team.length) {
@@ -62,37 +58,46 @@ const TeamBuilder = () => {
     }
   };
 
-  /**
-   * Toggle shiny state for Pokémon at specific index
-   * @param {number} index - Team slot index
-   */
   const handleShinyToggle = (index) => {
-    const updatedTeam = team.map((pokemon, i) => {
-      if (i === index && pokemon) {
-        const newShinyState = !pokemon._isShiny;
-        return {
-          ...pokemon,
-          _isShiny: newShinyState
-        };
-      }
-      return pokemon;
+    updatePokemon(index, {
+      _isShiny: !team[index]._isShiny
     });
-    setTeam(updatedTeam);
   };
 
-  /**
-   * Open info modal for Pokémon
-   * @param {Object} pokemon - Pokémon to show in modal
-   */
   const handleInfoOpen = (pokemon) => {
     setSelectedPokemon(pokemon);
     setIsModalOpen(true);
   };
 
-  /**
-   * Handle shiny toggle from modal
-   * @param {boolean} isShiny - New shiny state
-   */
+  const handleEditOpen = (pokemon, index) => {
+  setEditingPokemon(pokemon);
+  setEditingIndex(index);
+  setIsSettingsOpen(true);
+};
+
+const handleSettingsUpdate = (updatedOptions) => {
+  if (editingIndex !== null && team[editingIndex]) {
+    updatePokemon(editingIndex, {
+      ...updatedOptions,
+      // Preserve existing properties including form data
+      id: team[editingIndex].id,
+      name: team[editingIndex].name,
+      sprites: team[editingIndex].sprites,
+      types: team[editingIndex].types,
+      _isShiny: team[editingIndex]._isShiny,
+      // Make sure form data is preserved from updatedOptions
+      form: updatedOptions.form || team[editingIndex].form,
+      formName: updatedOptions.formName || team[editingIndex].formName
+    });
+  }
+};
+
+  const handleSettingsClose = () => {
+    setIsSettingsOpen(false);
+    setEditingPokemon(null);
+    setEditingIndex(null);
+  };
+
   const handleModalShinyToggle = (isShiny) => {
     if (selectedPokemon) {
       const updatedTeam = team.map(p => 
@@ -102,21 +107,21 @@ const TeamBuilder = () => {
     }
   };
 
-  /**
-   * Close modal and reset selected Pokémon
-   */
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPokemon(null);
   };
 
-  // Create proper IDs for DnD
-  const sortableItems = team.map((_, index) => `slot-${index}`);
-
-  // Calculate unique types in team
+  // Team analysis
+  const teamPokemon = team.filter(p => p);
   const uniqueTypes = Array.from(
-    new Set(team.filter(p => p).flatMap(p => p.types.map(t => t.type.name)))
+    new Set(teamPokemon.flatMap(p => p.types.map(t => t.type.name)))
   );
+  
+  const totalLevel = teamPokemon.reduce((sum, p) => sum + (p.level || 50), 0);
+  const averageLevel = teamPokemon.length > 0 ? Math.round(totalLevel / teamPokemon.length) : 0;
+
+  const sortableItems = team.map((_, index) => `slot-${index}`);
 
   return (
     <>
@@ -142,6 +147,7 @@ const TeamBuilder = () => {
                   onRemove={() => removeFromTeam(index)}
                   onShinyToggle={() => handleShinyToggle(index)}
                   onInfoOpen={handleInfoOpen}
+                  onEdit={handleEditOpen}
                 />
               ))}
             </div>
@@ -150,14 +156,30 @@ const TeamBuilder = () => {
 
         {/* Team Stats Summary */}
         <div className="mt-6 p-4 bg-[#141414] rounded-xl border border-[#7f1d1d]/20">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-400">Team Size:</span>
-            <span className="text-white font-bold">{team.filter(p => p).length}/6</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="text-center">
+              <span className="text-gray-400">Team Size:</span>
+              <p className="text-white font-bold">{teamPokemon.length}/6</p>
+            </div>
+            <div className="text-center">
+              <span className="text-gray-400">Avg. Level:</span>
+              <p className="text-white font-bold">{averageLevel}</p>
+            </div>
+            <div className="text-center">
+              <span className="text-gray-400">Unique Types:</span>
+              <p className="text-white font-bold">{uniqueTypes.length}</p>
+            </div>
+            <div className="text-center">
+              <span className="text-gray-400">Shiny:</span>
+              <p className="text-white font-bold">
+                {teamPokemon.filter(p => p._isShiny).length}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Team Type Coverage Preview */}
-        {team.filter(p => p).length > 0 && (
+        {/* Team Type Coverage */}
+        {teamPokemon.length > 0 && (
           <div className="mt-6 p-4 bg-[#141414] rounded-xl border border-[#7f1d1d]/20">
             <h3 className="text-white font-bold mb-3">Team Type Coverage</h3>
             <div className="flex flex-wrap gap-2">
@@ -167,9 +189,6 @@ const TeamBuilder = () => {
                 </span>
               ))}
             </div>
-            <p className="text-gray-400 text-sm mt-2">
-              {team.filter(p => p).length} Pokémon, {uniqueTypes.length} unique types
-            </p>
           </div>
         )}
       </div>
@@ -181,6 +200,26 @@ const TeamBuilder = () => {
         onClose={handleCloseModal}
         onShinyToggle={handleModalShinyToggle}
       />
+
+      {/* Pokémon Settings Modal for Editing */}
+      {isSettingsOpen && editingPokemon && (
+        <PokemonSettings
+          pokemon={editingPokemon}
+          options={{
+            level: editingPokemon.level || 50,
+            nature: editingPokemon.nature || 'hardy',
+            moves: editingPokemon.moves || [],
+            item: editingPokemon.item || '',
+            itemData: editingPokemon.itemData || null,
+            form: editingPokemon.form || null,
+            formName: editingPokemon.formName || null
+          }}
+          onOptionsChange={handleSettingsUpdate}
+          onAdd={handleSettingsClose}
+          onClose={handleSettingsClose}
+          isEditing={true}
+        />
+      )}
     </>
   );
 };

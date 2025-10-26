@@ -16,38 +16,51 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await axios.get(`https://pokeapi.co/api/v2/move/${id}/`);
+    const response = await axios.get(`https://pokeapi.co/api/v2/move/${id.toLowerCase()}/`);
     const data = response.data;
 
+    // More robust data handling with fallbacks
     const move = {
       id: data.id,
       name: data.name,
-      type: data.type.name,
-      power: data.power,
-      accuracy: data.accuracy,
-      pp: data.pp,
-      priority: data.priority,
-      damage_class: data.damage_class.name,
+      type: data.type?.name || 'unknown',
+      power: data.power || 0,
+      accuracy: data.accuracy || 100,
+      pp: data.pp || 0,
+      priority: data.priority || 0,
+      damage_class: data.damage_class?.name || 'physical',
       description: getMoveDescription(data),
-      category: data.damage_class.name === 'status' ? 'status' : 
-                data.damage_class.name === 'physical' ? 'physical' : 'special',
-      target: data.target.name,
-      effect_chance: data.effect_chance
+      category: data.damage_class?.name === 'status' ? 'status' : 
+                data.damage_class?.name === 'physical' ? 'physical' : 'special',
+      target: data.target?.name || 'selected-pokemon',
+      effect_chance: data.effect_chance || null
     };
 
     res.status(200).json(move);
   } catch (error) {
     console.error(`Error fetching move ${id}:`, error.message);
-    res.status(500).json({ error: 'Failed to fetch move data' });
+    
+    if (error.response?.status === 404) {
+      return res.status(404).json({ error: `Move '${id}' not found` });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch move data',
+      details: error.message 
+    });
   }
 }
 
 function getMoveDescription(moveData) {
-  const englishEntry = moveData.effect_entries?.find(entry => entry.language.name === 'en');
-  if (englishEntry) {
-    return englishEntry.effect.replace(/\$effect_chance/g, moveData.effect_chance || 0);
+  try {
+    const englishEntry = moveData.effect_entries?.find(entry => entry.language.name === 'en');
+    if (englishEntry) {
+      return englishEntry.effect.replace(/\$effect_chance/g, moveData.effect_chance || 0);
+    }
+    
+    const flavorEntry = moveData.flavor_text_entries?.find(entry => entry.language.name === 'en');
+    return flavorEntry?.flavor_text || 'No description available';
+  } catch (error) {
+    return 'Description unavailable';
   }
-  
-  const flavorEntry = moveData.flavor_text_entries?.find(entry => entry.language.name === 'en');
-  return flavorEntry?.flavor_text || 'No description available';
 }
