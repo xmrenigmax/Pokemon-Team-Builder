@@ -639,20 +639,6 @@ const switchPokemon = (pokemonIndex) => {
           </div>
         )}
       </div>
-      {/* Debug Panel - remove this after fixing */}
-{isBattling && (
-  <div className="pokemon-card p-4 bg-gray-800 border border-red-500">
-    <h3 className="text-lg font-bold text-red-400 mb-2">Debug Info</h3>
-    <div className="text-sm space-y-1">
-      <div>Force Switch: {forceSwitch ? 'TRUE' : 'false'}</div>
-      <div>Voluntary Switch: {voluntarySwitch ? 'TRUE' : 'false'}</div>
-      <div>Battle Winner: {battleState?.winner || 'none'}</div>
-      <div>Player Active HP: {battleState?.player.team[battleState?.player.activePokemon]?.hp}</div>
-      <div>Player Remaining: {battleState?.player.remainingPokemon}</div>
-      <div>Active Pokémon Index: {battleState?.player.activePokemon}</div>
-    </div>
-  </div>
-)}
     </div>
   );
 };
