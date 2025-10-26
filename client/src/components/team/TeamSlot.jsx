@@ -87,12 +87,12 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen, onE
           <Sparkles size={12} />
         </button>
         <button
-          onClick={() => onEdit(pokemon, index)}
-          className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded p-1 transition-colors"
-          title="Edit Pokémon"
-        >
-          <Settings size={12} />
-        </button>
+        onClick={() => onEdit(pokemon, index)} // Ensure we pass both parameters
+        className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded p-1 transition-colors"
+        title="Edit Pokémon"
+      >
+        <Settings size={12} />
+      </button>
         <button
           onClick={() => onInfoOpen(pokemon)}
           className="bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded p-1 transition-colors"
