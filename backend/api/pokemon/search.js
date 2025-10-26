@@ -1,11 +1,12 @@
 import axios from 'axios';
-import { setCorsHeaders, handleOptions } from '../../lib/cors';
 
 export default async function handler(req, res) {
-  setCorsHeaders(res);
+  res.setHeader('Access-Control-Allow-Origin', 'https://pokemon-team-builder-plum.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  if (handleOptions(req, res)) {
-    return;
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   const { q } = req.query;

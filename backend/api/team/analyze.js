@@ -7,12 +7,12 @@ import { setCorsHeaders, handleOptions } from '../../lib/cors';
  * API endpoint for team analysis
  */
 export default async function handler(req, res) {
-  // Set CORS headers
-  setCorsHeaders(res);
+  res.setHeader('Access-Control-Allow-Origin', 'https://pokemon-team-builder-plum.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  // Handle OPTIONS request
-  if (handleOptions(req, res)) {
-    return;
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
