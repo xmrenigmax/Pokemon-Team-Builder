@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Plus, ChevronDown, ChevronUp, Search, Lock, Package, Zap, Sparkles, Moon, Sun, Heart, Sword, Shield, Gauge } from 'lucide-react';
 import { pokemonAPI } from '../../utils/api';
+import debounce from 'lodash/debounce';
 
 /**
  * Available Pokémon natures with stat effects
@@ -157,7 +158,7 @@ const PokemonSettings = ({
   }, [moveSearch, availableMoves]);
 
   /**
-   * Track changes in options
+   * Track changes in options and update stats
    */
   useEffect(() => {
     // Set hasChanges to true when any option changes (except initial load)
@@ -165,6 +166,14 @@ const PokemonSettings = ({
       setHasChanges(true);
     }
   }, [options, selectedForm]);
+
+  // Debounced version of calculateStatsPreview
+  const debouncedCalculateStats = useCallback(
+    debounce(async () => {
+      await calculateStatsPreview();
+    }, 100),
+    [pokemon, selectedForm, options]
+  );
 
   /**
    * Load all moves the Pokémon can learn
@@ -575,12 +584,23 @@ const PokemonSettings = ({
   /**
    * Handle level change with validation
    */
-  const handleLevelChange = async (level) => {
+  const handleLevelChange = (event) => {
+    const level = event.target.value;
     const newLevel = Math.max(1, Math.min(100, parseInt(level) || 50));
-    onOptionsChange({ ...options, level: newLevel });
+    
+    // Update local state immediately for smooth UI
+    onOptionsChange({ 
+      ...options, 
+      level: newLevel,
+      calculatedStats: {
+        ...(options.calculatedStats || {}),
+        level: newLevel
+      }
+    });
     setHasChanges(true);
-    // Recalculate stats after level change
-    await calculateStatsPreview();
+    
+    // Debounce the actual stat calculation
+    debouncedCalculateStats();
   };
 
   /**
@@ -1002,8 +1022,8 @@ const BasicSettings = ({
             type="range"
             min="1"
             max="100"
-            value={options.level}
-            onChange={(e) => onLevelChange(e.target.value)}
+            value={options.level || 50}
+            onChange={handleLevelChange}
             className="w-full h-2 bg-[#141414] rounded-lg appearance-none cursor-pointer slider-thumb"
           />
           <div className="flex justify-between text-xs text-gray-400 px-2">
