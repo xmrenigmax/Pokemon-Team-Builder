@@ -1,37 +1,65 @@
 import axios from 'axios'
 
 const API_BASE = 'https://pokemon-team-builder-backend.vercel.app/api'
-const createCancelToken = () => axios.CancelToken.source()
 
 export const pokemonAPI = {
-  search: async (query, cancelToken) => {
+  search: async (query) => {
     try {
-      const response = await axios.get(`${API_BASE}/pokemon/search?q=${query}`, {
-        cancelToken: cancelToken?.token
-      })
+      const response = await axios.get(`${API_BASE}/pokemon/search?q=${query}`)
       return response.data.results
     } catch (error) {
-      if (axios.isCancel(error)) {
-        console.log('Search request cancelled:', query)
-      } else {
-        console.error('API search error:', error)
-      }
+      console.error('API search error:', error)
       return []
     }
   },
-
+  
   getPokemon: async (id) => {
-    const response = await axios.get(`${API_BASE}/pokemon/${id}`)
-    return response.data
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('API getPokemon error:', error)
+      return null
+    }
+  },
+  
+  getPokemonSpecies: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/species/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('API getPokemonSpecies error:', error)
+      return null
+    }
+  },
+  
+  getEvolutionChain: async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/evolution/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('API getEvolutionChain error:', error)
+      return null
+    }
   },
   
   getTypes: async () => {
-    const response = await axios.get(`${API_BASE}/pokemon/types`)
-    return response.data
+    try {
+      const response = await axios.get(`${API_BASE}/pokemon/types`)
+      return response.data
+    } catch (error) {
+      console.error('API getTypes error:', error)
+      return {}
+    }
   },
   
   analyzeTeam: async (team) => {
-    const response = await axios.post(`${API_BASE}/team/analyze`, { team })
-    return response.data
+    try {
+      const response = await axios.post(`${API_BASE}/team/analyze`, { team })
+      return response.data
+    } catch (error) {
+      console.error('API analyzeTeam error:', error)
+      return {}
+    }
   }
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -11,7 +11,7 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  horizontalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import TeamSlot from './TeamSlot'
 import PokemonModal from '../pokemon/PokemonModal'
@@ -25,7 +25,7 @@ const TeamBuilder = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Need to drag 8px before it activates
+        distance: 3, // Reduced from 8px for faster activation
       },
     }),
     useSensor(KeyboardSensor, {
@@ -41,15 +41,16 @@ const TeamBuilder = () => {
     const activeId = active.id
     const overId = over.id
 
-    // Don't do anything if dragging over same slot
     if (activeId === overId) return
 
-    // Find the indices
-    const activeIndex = team.findIndex(p => p && `pokemon-${p.id}` === activeId)
-    const overIndex = team.findIndex(p => p && `pokemon-${p.id}` === overId)
+    // Extract indices from IDs
+    const activeIndex = parseInt(activeId.split('-')[1])
+    const overIndex = parseInt(overId.split('-')[1])
 
-    // Only proceed if both indices are valid
-    if (activeIndex !== -1 && overIndex !== -1) {
+    // Only proceed if both indices are valid and within team bounds
+    if (!isNaN(activeIndex) && !isNaN(overIndex) && 
+        activeIndex >= 0 && activeIndex < team.length &&
+        overIndex >= 0 && overIndex < team.length) {
       setTeam(arrayMove(team, activeIndex, overIndex))
     }
   }
@@ -82,10 +83,8 @@ const TeamBuilder = () => {
     setSelectedPokemon(null)
   }
 
-  // Create proper IDs for DnD - use index-based IDs to avoid issues
-  const sortableItems = team.map((pokemon, index) => 
-    pokemon ? `slot-${index}` : `empty-${index}`
-  )
+  // Create proper IDs for DnD
+  const sortableItems = team.map((_, index) => `slot-${index}`)
 
   return (
     <>
@@ -94,17 +93,18 @@ const TeamBuilder = () => {
         
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={closestCorners} // Better for grid layout
           onDragEnd={handleDragEnd}
         >
           <SortableContext 
             items={sortableItems}
-            strategy={horizontalListSortingStrategy}
+            strategy={rectSortingStrategy} // Better for grid than horizontalList
           >
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {Array.from({ length: 6 }).map((_, index) => (
                 <TeamSlot
-                  key={sortableItems[index]}
+                  key={`slot-${index}`}
+                  id={`slot-${index}`}
                   index={index}
                   pokemon={team[index]}
                   onRemove={() => removeFromTeam(index)}
@@ -120,23 +120,23 @@ const TeamBuilder = () => {
         <div className="mt-6 p-4 bg-[#141414] rounded-xl border border-[#7f1d1d]/20">
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-400">Team Size:</span>
-            <span className="text-white font-bold">{team.length}/6</span>
+            <span className="text-white font-bold">{team.filter(p => p).length}/6</span>
           </div>
         </div>
 
         {/* Team Type Coverage Preview */}
-        {team.length > 0 && (
+        {team.filter(p => p).length > 0 && (
           <div className="mt-6 p-4 bg-[#141414] rounded-xl border border-[#7f1d1d]/20">
             <h3 className="text-white font-bold mb-3">Team Type Coverage</h3>
             <div className="flex flex-wrap gap-2">
-              {Array.from(new Set(team.flatMap(p => p.types.map(t => t.type.name)))).map(type => (
+              {Array.from(new Set(team.filter(p => p).flatMap(p => p.types.map(t => t.type.name)))).map(type => (
                 <span key={type} className={`type-badge bg-${type} text-xs`}>
                   {type}
                 </span>
               ))}
             </div>
             <p className="text-gray-400 text-sm mt-2">
-              {team.length} Pokémon, {Array.from(new Set(team.flatMap(p => p.types.map(t => t.type.name)))).length} unique types
+              {team.filter(p => p).length} Pokémon, {Array.from(new Set(team.filter(p => p).flatMap(p => p.types.map(t => t.type.name)))).length} unique types
             </p>
           </div>
         )}

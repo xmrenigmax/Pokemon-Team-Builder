@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, ArrowRight } from 'lucide-react';
+import { X, Sparkles, ArrowRight, Loader } from 'lucide-react';
 import { pokemonAPI } from '../../utils/api';
 
 const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
@@ -7,13 +7,19 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
   const [evolutionChain, setEvolutionChain] = useState([]);
   const [activeTab, setActiveTab] = useState('stats');
   const [isShiny, setIsShiny] = useState(pokemon?._isShiny || false);
+  const [evolutionLoading, setEvolutionLoading] = useState(false);
 
   useEffect(() => {
     if (pokemon && isOpen) {
       fetchPokemonDetails();
-      fetchEvolutionChain();
     }
   }, [pokemon, isOpen]);
+
+  useEffect(() => {
+    if (activeTab === 'evolution' && pokemonDetails && evolutionChain.length === 0) {
+      fetchEvolutionChain();
+    }
+  }, [activeTab, pokemonDetails]);
 
   const fetchPokemonDetails = async () => {
     try {
@@ -25,11 +31,41 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
   };
 
   const fetchEvolutionChain = async () => {
+    if (!pokemonDetails) return;
+    
+    setEvolutionLoading(true);
     try {
-      // Simplified evolution chain for now
-      setEvolutionChain([pokemon]);
+      const evolutionData = await pokemonAPI.getEvolutionChain(pokemon.id);
+      
+      if (evolutionData && !evolutionData.evolves) {
+        // Pokémon doesn't evolve
+        setEvolutionChain([pokemonDetails]);
+      } else if (evolutionData && Array.isArray(evolutionData)) {
+        // We have evolution data - fetch details for each Pokémon in the chain
+        const evolutionLine = [];
+        
+        for (const evolution of evolutionData) {
+          const pokemonId = evolution.species_url.split('/').filter(Boolean).pop();
+          try {
+            const pokemonData = await pokemonAPI.getPokemon(pokemonId);
+            if (pokemonData) {
+              evolutionLine.push(pokemonData);
+            }
+          } catch (error) {
+            console.error(`Error fetching evolution Pokémon ${pokemonId}:`, error);
+          }
+        }
+        
+        setEvolutionChain(evolutionLine);
+      } else {
+        // Fallback - just show current Pokémon
+        setEvolutionChain([pokemonDetails]);
+      }
     } catch (error) {
       console.error('Error fetching evolution chain:', error);
+      setEvolutionChain([pokemonDetails]); // Fallback to just current Pokémon
+    } finally {
+      setEvolutionLoading(false);
     }
   };
 
@@ -198,35 +234,71 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-white mb-4">Evolution Chain</h3>
               
-              {evolutionChain.length > 0 ? (
-                <div className="flex items-center justify-center gap-4">
+              {evolutionLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader className="animate-spin text-[#ef4444] mr-3" size={24} />
+                  <span className="text-gray-400">Loading evolution chain...</span>
+                </div>
+              ) : evolutionChain.length > 1 ? (
+                <div className="flex flex-col items-center space-y-6">
                   {evolutionChain.map((evo, index) => (
                     <React.Fragment key={evo.id}>
-                      <div className="text-center">
+                      <div className={`text-center group hover:scale-105 transition-transform duration-200 ${
+                        evo.id === displayPokemon.id ? 'ring-2 ring-[#ef4444] rounded-xl p-2' : ''
+                      }`}>
                         <img
                           src={evo.sprites.front_default}
                           alt={evo.name}
-                          className="w-16 h-16 object-contain mx-auto mb-2"
+                          className="w-20 h-20 object-contain mx-auto mb-2"
                         />
-                        <p className="text-white capitalize text-sm">{evo.name}</p>
+                        <p className="text-white capitalize font-semibold">{evo.name}</p>
+                        <p className="text-gray-400 text-sm">#{evo.id.toString().padStart(3, '0')}</p>
+                        <div className="flex justify-center gap-1 mt-1">
+                          {evo.types.map(type => (
+                            <span
+                              key={type.type.name}
+                              className={`type-badge bg-${type.type.name} text-xs px-2 py-0.5`}
+                            >
+                              {type.type.name}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       {index < evolutionChain.length - 1 && (
-                        <ArrowRight className="text-gray-400" size={20} />
+                        <div className="flex items-center justify-center">
+                          <ArrowRight className="text-[#ef4444] mx-4" size={24} />
+                          <div className="text-xs text-gray-400 bg-[#141414] px-2 py-1 rounded">
+                            →
+                          </div>
+                        </div>
                       )}
                     </React.Fragment>
                   ))}
+                </div>
+              ) : evolutionChain.length === 1 ? (
+                <div className="text-center py-8">
+                  <div className="bg-[#141414] rounded-xl p-6 border border-[#7f1d1d]/20">
+                    <img
+                      src={evolutionChain[0].sprites.front_default}
+                      alt={evolutionChain[0].name}
+                      className="w-24 h-24 object-contain mx-auto mb-4"
+                    />
+                    <h4 className="text-white font-bold text-lg capitalize mb-2">
+                      {evolutionChain[0].name}
+                    </h4>
+                    <p className="text-gray-400">
+                      This Pokémon does not evolve.
+                    </p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      #{evolutionChain[0].id.toString().padStart(3, '0')}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-400 text-center py-8">
                   Evolution data not available
                 </p>
               )}
-              
-              <div className="mt-6 p-4 bg-[#141414] rounded-lg border border-[#7f1d1d]/20">
-                <p className="text-gray-400 text-sm text-center">
-                  Full evolution chain support coming soon!
-                </p>
-              </div>
             </div>
           )}
         </div>

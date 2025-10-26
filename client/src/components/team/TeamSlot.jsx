@@ -3,10 +3,7 @@ import { X, Sparkles, Menu, GripVertical } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
-  // Use index-based ID to avoid conflicts
-  const uniqueId = pokemon ? `slot-${index}` : `empty-${index}`
-  
+const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
   const {
     attributes,
     listeners,
@@ -15,13 +12,13 @@ const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
     transition,
     isDragging,
   } = useSortable({ 
-    id: uniqueId,
-    disabled: !pokemon // Disable drag for empty slots
+    id: id,
+    disabled: !pokemon
   })
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'transform 200ms ease', // Smoother transition
   }
 
   if (!pokemon) {
@@ -44,9 +41,13 @@ const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className={`pokemon-card group relative ${isDragging ? 'opacity-50 z-10' : ''}`}
+      className={`pokemon-card group relative ${
+        isDragging 
+          ? 'opacity-60 scale-105 z-50 shadow-2xl' 
+          : 'hover:scale-105 transition-transform duration-200'
+      }`}
     >
-      {/* Drag Handle - Only show on Pokémon slots */}
+      {/* Drag Handle */}
       <div
         {...attributes}
         {...listeners}
@@ -57,7 +58,6 @@ const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
 
       {/* Action Buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-        {/* Shiny Toggle */}
         <button
           onClick={onShinyToggle}
           className="bg-[#fbbf24] hover:bg-[#f59e0b] text-white rounded p-1 transition-colors"
@@ -65,8 +65,6 @@ const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
         >
           <Sparkles size={12} />
         </button>
-
-        {/* Info Button */}
         <button
           onClick={() => onInfoOpen(pokemon)}
           className="bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded p-1 transition-colors"
@@ -74,8 +72,6 @@ const TeamSlot = ({ index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
         >
           <Menu size={12} />
         </button>
-
-        {/* Remove Button */}
         <button
           onClick={onRemove}
           className="bg-[#ef4444] hover:bg-[#dc2626] text-white rounded p-1 transition-colors"

@@ -1,9 +1,36 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import TeamBuilder from '../components/team/TeamBuilder'
 import PokemonSearch from '../components/pokemon/PokemonSearch'
 import TeamStorage from '../components/team/TeamStorage'
+import { usePokemon } from '../contexts/PokemonContext'
 
 const TeamBuilderPage = () => {
+  const { team } = usePokemon()
+  const [savedTeamsCount, setSavedTeamsCount] = useState(0)
+
+  // Load saved teams count from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('savedPokemonTeams')
+    if (stored) {
+      setSavedTeamsCount(JSON.parse(stored).length)
+    }
+  }, [])
+
+  // Update saved teams count when it changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem('savedPokemonTeams')
+      if (stored) {
+        setSavedTeamsCount(JSON.parse(stored).length)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const currentTeamSize = team.filter(p => p).length
+
   return (
     <div className="min-h-screen bg-black text-white py-8">
       <div className="container mx-auto px-4">
@@ -17,14 +44,14 @@ const TeamBuilderPage = () => {
           </p>
         </div>
 
-        {/* Main Content - Improved Layout */}
+        {/* Main Content */}
         <div className="grid xl:grid-cols-12 gap-8">
           {/* Left Sidebar - Search */}
           <div className="xl:col-span-3">
             <PokemonSearch />
           </div>
 
-          {/* Center - Team Builder (Larger) */}
+          {/* Center - Team Builder */}
           <div className="xl:col-span-6">
             <TeamBuilder />
           </div>
@@ -39,7 +66,7 @@ const TeamBuilderPage = () => {
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-[#1a1a1a] rounded-xl p-4 border border-[#7f1d1d]/30 text-center">
             <p className="text-gray-400 text-sm">Total Teams Saved</p>
-            <p className="text-2xl font-bold text-white">0</p>
+            <p className="text-2xl font-bold text-white">{savedTeamsCount}</p>
           </div>
           <div className="bg-[#1a1a1a] rounded-xl p-4 border border-[#7f1d1d]/30 text-center">
             <p className="text-gray-400 text-sm">Pokémon in Database</p>
@@ -51,7 +78,7 @@ const TeamBuilderPage = () => {
           </div>
           <div className="bg-[#1a1a1a] rounded-xl p-4 border border-[#7f1d1d]/30 text-center">
             <p className="text-gray-400 text-sm">Team Slots Used</p>
-            <p className="text-2xl font-bold text-white">0/6</p>
+            <p className="text-2xl font-bold text-white">{currentTeamSize}/6</p>
           </div>
         </div>
       </div>

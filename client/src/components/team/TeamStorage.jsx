@@ -1,23 +1,29 @@
-import React, { useState } from 'react'
-import { Save, FolderOpen, Trash2, Plus } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Save, FolderOpen, Trash2 } from 'lucide-react'
 import { usePokemon } from '../../contexts/PokemonContext'
 
 const TeamStorage = () => {
   const { team, setTeam } = usePokemon()
-  const [savedTeams, setSavedTeams] = useState(() => {
-    const stored = localStorage.getItem('savedPokemonTeams')
-    return stored ? JSON.parse(stored) : []
-  })
+  const [savedTeams, setSavedTeams] = useState([])
   const [teamName, setTeamName] = useState('')
 
+  // Load saved teams from localStorage on component mount
+  useEffect(() => {
+    const stored = localStorage.getItem('savedPokemonTeams')
+    if (stored) {
+      setSavedTeams(JSON.parse(stored))
+    }
+  }, [])
+
   const saveCurrentTeam = () => {
-    if (!teamName.trim() || team.length === 0) return
+    if (!teamName.trim() || team.filter(p => p).length === 0) return
 
     const newTeam = {
       id: Date.now(),
       name: teamName,
-      pokemon: team,
-      date: new Date().toLocaleDateString()
+      pokemon: team.filter(p => p), // Only save actual Pokémon, not empty slots
+      date: new Date().toLocaleDateString(),
+      timestamp: Date.now()
     }
 
     const updatedTeams = [...savedTeams, newTeam]
@@ -27,7 +33,12 @@ const TeamStorage = () => {
   }
 
   const loadTeam = (teamToLoad) => {
-    setTeam(teamToLoad.pokemon)
+    // Fill the team array with the loaded Pokémon + empty slots
+    const loadedTeam = [...teamToLoad.pokemon]
+    while (loadedTeam.length < 6) {
+      loadedTeam.push(null)
+    }
+    setTeam(loadedTeam)
   }
 
   const deleteTeam = (teamId) => {
@@ -35,6 +46,8 @@ const TeamStorage = () => {
     setSavedTeams(updatedTeams)
     localStorage.setItem('savedPokemonTeams', JSON.stringify(updatedTeams))
   }
+
+  const currentTeamSize = team.filter(p => p).length
 
   return (
     <div className="bg-[#1a1a1a] rounded-2xl p-6 border border-[#7f1d1d]/30">
@@ -52,7 +65,7 @@ const TeamStorage = () => {
           />
           <button
             onClick={saveCurrentTeam}
-            disabled={!teamName.trim() || team.length === 0}
+            disabled={!teamName.trim() || currentTeamSize === 0}
             className="bg-[#10b981] hover:bg-[#059669] disabled:bg-gray-600 disabled:cursor-not-allowed text-white p-2 rounded-xl transition-colors"
             title="Save Team"
           >
@@ -60,7 +73,7 @@ const TeamStorage = () => {
           </button>
         </div>
         <p className="text-xs text-gray-400">
-          Current team: {team.length}/6 Pokémon
+          Current team: {currentTeamSize}/6 Pokémon
         </p>
       </div>
 
@@ -95,7 +108,7 @@ const TeamStorage = () => {
               <span>{savedTeam.date}</span>
             </div>
             <div className="flex gap-1 mt-2">
-              {savedTeam.pokemon.slice(0, 3).map((pokemon, index) => (
+              {savedTeam.pokemon.slice(0, 4).map((pokemon, index) => (
                 <img
                   key={index}
                   src={pokemon.sprites.front_default}
@@ -103,8 +116,8 @@ const TeamStorage = () => {
                   className="w-6 h-6 object-contain"
                 />
               ))}
-              {savedTeam.pokemon.length > 3 && (
-                <span className="text-xs text-gray-400">+{savedTeam.pokemon.length - 3}</span>
+              {savedTeam.pokemon.length > 4 && (
+                <span className="text-xs text-gray-400">+{savedTeam.pokemon.length - 4}</span>
               )}
             </div>
           </div>
