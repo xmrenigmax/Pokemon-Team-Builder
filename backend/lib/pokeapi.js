@@ -7,6 +7,11 @@ const cache = new Map();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
 class PokeAPIService {
+  /**
+   * Get Pokémon data by ID or name
+   * @param {string|number} idOrName - Pokémon identifier
+   * @returns {Object} Pokémon data
+   */
   async getPokemon(idOrName) {
     const cacheKey = `pokemon-${idOrName}`;
     const cached = cache.get(cacheKey);
@@ -16,7 +21,6 @@ class PokeAPIService {
     }
 
     try {
-      console.log(`Fetching Pokémon: ${idOrName}`);
       const response = await axios.get(`${POKEAPI_BASE}/pokemon/${idOrName}`);
       const pokemon = this.transformPokemonData(response.data);
       
@@ -32,6 +36,10 @@ class PokeAPIService {
     }
   }
 
+  /**
+   * Get type relationships data
+   * @returns {Object} Type effectiveness relationships
+   */
   async getTypeRelationships() {
     const cacheKey = 'type-relationships';
     const cached = cache.get(cacheKey);
@@ -41,7 +49,6 @@ class PokeAPIService {
     }
 
     try {
-      console.log('Fetching type relationships...');
       const typesResponse = await axios.get(`${POKEAPI_BASE}/type?limit=20`);
       const types = typesResponse.data.results;
 
@@ -73,6 +80,12 @@ class PokeAPIService {
     }
   }
 
+  /**
+   * Search Pokémon by name
+   * @param {string} query - Search query
+   * @param {number} limit - Maximum results
+   * @returns {Array} Search results
+   */
   async searchPokemon(query, limit = 20) {
     const cacheKey = `search-${query}-${limit}`;
     const cached = cache.get(cacheKey);
@@ -82,14 +95,11 @@ class PokeAPIService {
     }
 
     try {
-      console.log(`Searching Pokémon: ${query}`);
       const response = await axios.get(`${POKEAPI_BASE}/pokemon?limit=1000`);
       const allPokemon = response.data.results;
 
       const filtered = allPokemon
-        .filter(pokemon => 
-          pokemon.name.includes(query.toLowerCase())
-        )
+        .filter(pokemon => pokemon.name.includes(query.toLowerCase()))
         .slice(0, limit);
 
       const detailedResults = await Promise.all(
@@ -111,6 +121,11 @@ class PokeAPIService {
     }
   }
 
+  /**
+   * Transform raw API data to standardized format
+   * @param {Object} apiData - Raw Pokémon data from PokeAPI
+   * @returns {Object} Transformed Pokémon data
+   */
   transformPokemonData(apiData) {
     return {
       id: apiData.id,

@@ -1,6 +1,9 @@
-import pokeAPI from '../../lib/pokeapi.js';
-import TypeCalculator from '../../lib/typeCalculator.js';
+import pokeAPI from '../../../lib/pokeapi';
+import TypeCalculator from '../../../lib/typeCalculator';
 
+/**
+ * API endpoint for team analysis
+ */
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);

@@ -1,22 +1,29 @@
-import React, { useState, useEffect } from 'react'
-import { Save, FolderOpen, Trash2 } from 'lucide-react'
-import { usePokemon } from '../../contexts/PokemonContext'
+import React, { useState, useEffect } from 'react';
+import { Save, FolderOpen, Trash2 } from 'lucide-react';
+import { usePokemon } from '../../contexts/PokemonContext';
+import { getPokemonSprite, getPokemonName } from '../../utils/pokemonData';
 
+/**
+ * Component for saving and loading Pokémon teams
+ */
 const TeamStorage = () => {
-  const { team, setTeam } = usePokemon()
-  const [savedTeams, setSavedTeams] = useState([])
-  const [teamName, setTeamName] = useState('')
+  const { team, setTeam } = usePokemon();
+  const [savedTeams, setSavedTeams] = useState([]);
+  const [teamName, setTeamName] = useState('');
 
   // Load saved teams from localStorage on component mount
   useEffect(() => {
-    const stored = localStorage.getItem('savedPokemonTeams')
+    const stored = localStorage.getItem('savedPokemonTeams');
     if (stored) {
-      setSavedTeams(JSON.parse(stored))
+      setSavedTeams(JSON.parse(stored));
     }
-  }, [])
+  }, []);
 
+  /**
+   * Save current team to localStorage
+   */
   const saveCurrentTeam = () => {
-    if (!teamName.trim() || team.filter(p => p).length === 0) return
+    if (!teamName.trim() || team.filter(p => p).length === 0) return;
 
     const newTeam = {
       id: Date.now(),
@@ -24,30 +31,38 @@ const TeamStorage = () => {
       pokemon: team.filter(p => p), // Only save actual Pokémon, not empty slots
       date: new Date().toLocaleDateString(),
       timestamp: Date.now()
-    }
+    };
 
-    const updatedTeams = [...savedTeams, newTeam]
-    setSavedTeams(updatedTeams)
-    localStorage.setItem('savedPokemonTeams', JSON.stringify(updatedTeams))
-    setTeamName('')
-  }
+    const updatedTeams = [...savedTeams, newTeam];
+    setSavedTeams(updatedTeams);
+    localStorage.setItem('savedPokemonTeams', JSON.stringify(updatedTeams));
+    setTeamName('');
+  };
 
+  /**
+   * Load team from storage
+   * @param {Object} teamToLoad - Team data to load
+   */
   const loadTeam = (teamToLoad) => {
     // Fill the team array with the loaded Pokémon + empty slots
-    const loadedTeam = [...teamToLoad.pokemon]
+    const loadedTeam = [...teamToLoad.pokemon];
     while (loadedTeam.length < 6) {
-      loadedTeam.push(null)
+      loadedTeam.push(null);
     }
-    setTeam(loadedTeam)
-  }
+    setTeam(loadedTeam);
+  };
 
+  /**
+   * Delete team from storage
+   * @param {number} teamId - ID of team to delete
+   */
   const deleteTeam = (teamId) => {
-    const updatedTeams = savedTeams.filter(t => t.id !== teamId)
-    setSavedTeams(updatedTeams)
-    localStorage.setItem('savedPokemonTeams', JSON.stringify(updatedTeams))
-  }
+    const updatedTeams = savedTeams.filter(t => t.id !== teamId);
+    setSavedTeams(updatedTeams);
+    localStorage.setItem('savedPokemonTeams', JSON.stringify(updatedTeams));
+  };
 
-  const currentTeamSize = team.filter(p => p).length
+  const currentTeamSize = team.filter(p => p).length;
 
   return (
     <div className="bg-[#1a1a1a] rounded-2xl p-6 border border-[#7f1d1d]/30">
@@ -111,8 +126,8 @@ const TeamStorage = () => {
               {savedTeam.pokemon.slice(0, 4).map((pokemon, index) => (
                 <img
                   key={index}
-                  src={pokemon.sprites.front_default}
-                  alt={pokemon.name}
+                  src={getPokemonSprite(pokemon)}
+                  alt={getPokemonName(pokemon)}
                   className="w-6 h-6 object-contain"
                 />
               ))}
@@ -130,7 +145,7 @@ const TeamStorage = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default TeamStorage
+export default TeamStorage;

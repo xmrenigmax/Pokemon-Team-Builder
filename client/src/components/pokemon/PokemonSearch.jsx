@@ -1,38 +1,31 @@
-import React, { useState, useEffect } from 'react'
-import { Search, Loader } from 'lucide-react'
-import { usePokemon } from '../../contexts/PokemonContext'
-import PokemonCard from './PokemonCard'
+import React, { useState, useEffect } from 'react';
+import { Search, Loader } from 'lucide-react';
+import { usePokemon } from '../../contexts/PokemonContext';
+import PokemonCard from './PokemonCard';
 
+/**
+ * Component for searching and adding Pokémon to team
+ */
 const PokemonSearch = () => {
-  const { searchPokemon, searchResults, loading, addToTeam, team } = usePokemon()
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const { searchPokemon, searchResults, loading, addToTeam, team } = usePokemon();
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  // Simple debounce - only search after user stops typing
+  // Debounce search input to avoid excessive API calls
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedQuery(query)
-    }, 500)
+      setDebouncedQuery(query);
+    }, 500);
 
-    return () => clearTimeout(timer)
-  }, [query])
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  // Only search when we have a query, clear when empty
+  // Search when debounced query changes
   useEffect(() => {
-    if (debouncedQuery.trim()) {
-      searchPokemon(debouncedQuery)
-    } else {
-      setSearchResults([])
-    }
-  }, [debouncedQuery])
+    searchPokemon(debouncedQuery);
+  }, [debouncedQuery, searchPokemon]);
 
-  // Helper function to clear search results
-  const setSearchResults = (results) => {
-    // This would need to be implemented in the context
-    // For now, we'll rely on the context's searchPokemon('') call
-  }
-
-  const canAddToTeam = team.length < 6
+  const canAddToTeam = team.length < 6;
 
   return (
     <div className="bg-[#1a1a1a] rounded-2xl p-6 border border-[#7f1d1d]/30">
@@ -64,7 +57,7 @@ const PokemonSearch = () => {
 
       {/* Search Results */}
       <div className="grid gap-3 max-h-96 overflow-y-auto">
-        {/* Show loading state */}
+        {/* Loading State */}
         {loading && (
           <div className="flex justify-center items-center py-8">
             <Loader className="animate-spin text-[#ef4444] mr-2" size={20} />
@@ -72,7 +65,7 @@ const PokemonSearch = () => {
           </div>
         )}
 
-        {/* Show search results when not loading */}
+        {/* Search Results */}
         {!loading && searchResults.map((pokemon) => (
           <PokemonCard
             key={pokemon.id}
@@ -82,14 +75,14 @@ const PokemonSearch = () => {
           />
         ))}
         
-        {/* Show "no results" message */}
+        {/* No Results Message */}
         {!loading && debouncedQuery && searchResults.length === 0 && (
           <p className="text-gray-400 text-center py-4">
             No Pokémon found for "{debouncedQuery}"
           </p>
         )}
 
-        {/* Show initial state message */}
+        {/* Initial State Message */}
         {!loading && !debouncedQuery && (
           <p className="text-gray-400 text-center py-4">
             Start typing to search Pokémon...
@@ -97,7 +90,7 @@ const PokemonSearch = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default PokemonSearch
+export default PokemonSearch;

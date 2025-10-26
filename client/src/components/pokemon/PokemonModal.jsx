@@ -1,27 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, ArrowRight, Loader } from 'lucide-react';
 import { pokemonAPI } from '../../utils/api';
+import { 
+  getPokemonSprite, 
+  getPokemonShinySprite, 
+  getPokemonName, 
+  getPokemonTypes, 
+  getPokemonStats, 
+  getPokemonAbilities, 
+  getPokemonMoves,
+  getPokemonHeightInMeters,
+  getPokemonWeightInKg,
+  getPokemonBaseExp,
+  getIsShiny 
+} from '../../utils/pokemonData';
 
+/**
+ * Modal component for displaying detailed Pokémon information
+ * @param {Object} props - Component props
+ * @param {Object} props.pokemon - Pokémon data to display
+ * @param {boolean} props.isOpen - Whether modal is open
+ * @param {Function} props.onClose - Function to close modal
+ * @param {Function} props.onShinyToggle - Function to toggle shiny state
+ */
 const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
   const [pokemonDetails, setPokemonDetails] = useState(null);
   const [evolutionChain, setEvolutionChain] = useState([]);
   const [activeTab, setActiveTab] = useState('stats');
-  const [isShiny, setIsShiny] = useState(pokemon?._isShiny || false);
+  const [isShiny, setIsShiny] = useState(getIsShiny(pokemon));
   const [evolutionLoading, setEvolutionLoading] = useState(false);
 
+  // Reset state when pokemon changes
   useEffect(() => {
-    if (pokemon && isOpen) {
+    if (pokemon) {
+      setPokemonDetails(null);
+      setEvolutionChain([]);
+      setActiveTab('stats');
+      setIsShiny(getIsShiny(pokemon));
+      setEvolutionLoading(false);
       fetchPokemonDetails();
     }
-  }, [pokemon, isOpen]);
+  }, [pokemon]);
 
+  // Fetch evolution chain when evolution tab is active
   useEffect(() => {
     if (activeTab === 'evolution' && pokemonDetails && evolutionChain.length === 0) {
       fetchEvolutionChain();
     }
-  }, [activeTab, pokemonDetails]);
+  }, [activeTab, pokemonDetails, evolutionChain.length]);
 
+  /**
+   * Fetch detailed Pokémon information
+   */
   const fetchPokemonDetails = async () => {
+    if (!pokemon) return;
+    
     try {
       const details = await pokemonAPI.getPokemon(pokemon.id);
       setPokemonDetails(details);
@@ -30,53 +63,37 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
     }
   };
 
+  /**
+   * Fetch evolution chain data
+   */
   const fetchEvolutionChain = async () => {
     if (!pokemonDetails) return;
     
     setEvolutionLoading(true);
     try {
       const evolutionData = await pokemonAPI.getEvolutionChain(pokemon.id);
-      
-      if (evolutionData && !evolutionData.evolves) {
-        // Pokémon doesn't evolve
-        setEvolutionChain([pokemonDetails]);
-      } else if (evolutionData && Array.isArray(evolutionData)) {
-        // We have evolution data - fetch details for each Pokémon in the chain
-        const evolutionLine = [];
-        
-        for (const evolution of evolutionData) {
-          const pokemonId = evolution.species_url.split('/').filter(Boolean).pop();
-          try {
-            const pokemonData = await pokemonAPI.getPokemon(pokemonId);
-            if (pokemonData) {
-              evolutionLine.push(pokemonData);
-            }
-          } catch (error) {
-            console.error(`Error fetching evolution Pokémon ${pokemonId}:`, error);
-          }
-        }
-        
-        setEvolutionChain(evolutionLine);
-      } else {
-        // Fallback - just show current Pokémon
-        setEvolutionChain([pokemonDetails]);
-      }
+      setEvolutionChain(evolutionData.chain || [pokemonDetails]);
     } catch (error) {
       console.error('Error fetching evolution chain:', error);
-      setEvolutionChain([pokemonDetails]); // Fallback to just current Pokémon
+      setEvolutionChain([pokemonDetails]); // Fallback
     } finally {
       setEvolutionLoading(false);
     }
   };
 
+  /**
+   * Handle shiny toggle
+   */
   const handleShinyToggle = () => {
     const newShinyState = !isShiny;
     setIsShiny(newShinyState);
     onShinyToggle(newShinyState);
   };
 
+  // Don't render if modal is closed or no Pokémon
   if (!isOpen || !pokemon) return null;
 
+  // Use detailed data if available, otherwise use basic Pokémon data
   const displayPokemon = pokemonDetails || pokemon;
 
   return (
@@ -86,26 +103,27 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
         <div className="flex justify-between items-center p-6 border-b border-[#7f1d1d]/30">
           <div className="flex items-center gap-4">
             <img
-              src={isShiny && displayPokemon.sprites.front_shiny 
-                ? displayPokemon.sprites.front_shiny 
-                : displayPokemon.sprites.front_default}
-              alt={displayPokemon.name}
+              src={isShiny ? getPokemonShinySprite(displayPokemon) : getPokemonSprite(displayPokemon)}
+              alt={getPokemonName(displayPokemon)}
               className="w-16 h-16 object-contain"
             />
             <div>
               <h2 className="text-2xl font-bold text-white capitalize">
-                {displayPokemon.name}
+                {getPokemonName(displayPokemon)}
                 {isShiny && <span className="text-[#fbbf24] ml-2">✨</span>}
               </h2>
               <div className="flex gap-2 mt-1">
-                {displayPokemon.types.map((type) => (
-                  <span
-                    key={type.type.name}
-                    className={`type-badge bg-${type.type.name} px-3 py-1`}
-                  >
-                    {type.type.name}
-                  </span>
-                ))}
+                {getPokemonTypes(displayPokemon).map((type) => {
+                  const typeName = type.type?.name || type.name || 'unknown';
+                  return (
+                    <span
+                      key={typeName}
+                      className={`type-badge bg-${typeName} px-3 py-1`}
+                    >
+                      {typeName}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -157,33 +175,41 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
           {activeTab === 'stats' && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-white mb-4">Base Stats</h3>
-              {displayPokemon.stats.map((stat) => (
-                <div key={stat.name} className="flex items-center gap-4">
-                  <span className="text-gray-400 capitalize w-32 text-sm">
-                    {stat.name.replace('_', ' ')}:
-                  </span>
-                  <div className="flex-1 bg-[#141414] rounded-full h-3">
-                    <div
-                      className="bg-[#ef4444] h-3 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${Math.min(100, (stat.base_stat / 255) * 100)}%` 
-                      }}
-                    ></div>
+              {getPokemonStats(displayPokemon).map((stat) => {
+                const statName = stat.name || stat.stat?.name || 'unknown';
+                const baseStat = stat.base_stat || 0;
+                return (
+                  <div key={statName} className="flex items-center gap-4">
+                    <span className="text-gray-400 capitalize w-32 text-sm">
+                      {statName.replace('_', ' ')}:
+                    </span>
+                    <div className="flex-1 bg-[#141414] rounded-full h-3">
+                      <div
+                        className="bg-[#ef4444] h-3 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${Math.min(100, (baseStat / 255) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <span className="text-white font-bold w-8 text-sm">
+                      {baseStat}
+                    </span>
                   </div>
-                  <span className="text-white font-bold w-8 text-sm">
-                    {stat.base_stat}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               
               <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-[#7f1d1d]/30">
                 <div className="text-center">
                   <p className="text-gray-400 text-sm">Height</p>
-                  <p className="text-white font-bold">{(displayPokemon.height / 10).toFixed(1)} m</p>
+                  <p className="text-white font-bold">
+                    {getPokemonHeightInMeters(displayPokemon).toFixed(1)} m
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-400 text-sm">Weight</p>
-                  <p className="text-white font-bold">{(displayPokemon.weight / 10).toFixed(1)} kg</p>
+                  <p className="text-white font-bold">
+                    {getPokemonWeightInKg(displayPokemon).toFixed(1)} kg
+                  </p>
                 </div>
               </div>
             </div>
@@ -196,34 +222,41 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
               <div>
                 <h4 className="text-white font-semibold mb-2">Abilities</h4>
                 <div className="space-y-2">
-                  {displayPokemon.abilities.map((ability) => (
-                    <div
-                      key={ability.name}
-                      className="bg-[#141414] rounded-lg p-3 border border-[#7f1d1d]/20"
-                    >
-                      <span className="text-white capitalize">
-                        {ability.name.replace('-', ' ')}
-                      </span>
-                      {ability.is_hidden && (
-                        <span className="text-[#fbbf24] text-sm ml-2">(Hidden)</span>
-                      )}
-                    </div>
-                  ))}
+                  {getPokemonAbilities(displayPokemon).map((ability) => {
+                    const abilityName = ability.name || ability.ability?.name || 'unknown';
+                    const isHidden = ability.is_hidden || false;
+                    return (
+                      <div
+                        key={abilityName}
+                        className="bg-[#141414] rounded-lg p-3 border border-[#7f1d1d]/20"
+                      >
+                        <span className="text-white capitalize">
+                          {abilityName.replace('-', ' ')}
+                        </span>
+                        {isHidden && (
+                          <span className="text-[#fbbf24] text-sm ml-2">(Hidden)</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {displayPokemon.moves && displayPokemon.moves.length > 0 && (
+              {getPokemonMoves(displayPokemon).length > 0 && (
                 <div>
                   <h4 className="text-white font-semibold mb-2">Sample Moves</h4>
                   <div className="flex flex-wrap gap-2">
-                    {displayPokemon.moves.slice(0, 8).map((move) => (
-                      <span
-                        key={move.name}
-                        className="bg-[#141414] text-white text-sm px-3 py-1 rounded-full border border-[#7f1d1d]/20"
-                      >
-                        {move.name.replace('-', ' ')}
-                      </span>
-                    ))}
+                    {getPokemonMoves(displayPokemon).slice(0, 8).map((move) => {
+                      const moveName = move.name || move.move?.name || 'unknown';
+                      return (
+                        <span
+                          key={moveName}
+                          className="bg-[#141414] text-white text-sm px-3 py-1 rounded-full border border-[#7f1d1d]/20"
+                        >
+                          {moveName.replace('-', ' ')}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -244,24 +277,27 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
                   {evolutionChain.map((evo, index) => (
                     <React.Fragment key={evo.id}>
                       <div className={`text-center group hover:scale-105 transition-transform duration-200 ${
-                        evo.id === displayPokemon.id ? 'ring-2 ring-[#ef4444] rounded-xl p-2' : ''
+                        evo.id === displayPokemon.id ? 'ring-2 ring-[#ef4444] rounded-xl p-2 bg-[#1a1a1a]' : ''
                       }`}>
                         <img
-                          src={evo.sprites.front_default}
-                          alt={evo.name}
+                          src={getPokemonSprite(evo)}
+                          alt={getPokemonName(evo)}
                           className="w-20 h-20 object-contain mx-auto mb-2"
                         />
-                        <p className="text-white capitalize font-semibold">{evo.name}</p>
-                        <p className="text-gray-400 text-sm">#{evo.id.toString().padStart(3, '0')}</p>
+                        <p className="text-white capitalize font-semibold">{getPokemonName(evo)}</p>
+                        <p className="text-gray-400 text-sm">#{evo.id?.toString().padStart(3, '0') || '???'}</p>
                         <div className="flex justify-center gap-1 mt-1">
-                          {evo.types.map(type => (
-                            <span
-                              key={type.type.name}
-                              className={`type-badge bg-${type.type.name} text-xs px-2 py-0.5`}
-                            >
-                              {type.type.name}
-                            </span>
-                          ))}
+                          {getPokemonTypes(evo).map(type => {
+                            const typeName = type.type?.name || type.name || 'unknown';
+                            return (
+                              <span
+                                key={typeName}
+                                className={`type-badge bg-${typeName} text-xs px-2 py-0.5`}
+                              >
+                                {typeName}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                       {index < evolutionChain.length - 1 && (
@@ -275,29 +311,25 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
                     </React.Fragment>
                   ))}
                 </div>
-              ) : evolutionChain.length === 1 ? (
+              ) : (
                 <div className="text-center py-8">
                   <div className="bg-[#141414] rounded-xl p-6 border border-[#7f1d1d]/20">
                     <img
-                      src={evolutionChain[0].sprites.front_default}
-                      alt={evolutionChain[0].name}
+                      src={getPokemonSprite(displayPokemon)}
+                      alt={getPokemonName(displayPokemon)}
                       className="w-24 h-24 object-contain mx-auto mb-4"
                     />
                     <h4 className="text-white font-bold text-lg capitalize mb-2">
-                      {evolutionChain[0].name}
+                      {getPokemonName(displayPokemon)}
                     </h4>
                     <p className="text-gray-400">
                       This Pokémon does not evolve.
                     </p>
                     <p className="text-gray-500 text-sm mt-2">
-                      #{evolutionChain[0].id.toString().padStart(3, '0')}
+                      #{displayPokemon.id?.toString().padStart(3, '0') || '???'}
                     </p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-gray-400 text-center py-8">
-                  Evolution data not available
-                </p>
               )}
             </div>
           )}
@@ -306,8 +338,12 @@ const PokemonModal = ({ pokemon, isOpen, onClose, onShinyToggle }) => {
         {/* Footer */}
         <div className="p-4 border-t border-[#7f1d1d]/30 bg-[#141414]">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-400">Pokédex ID: #{displayPokemon.id.toString().padStart(3, '0')}</span>
-            <span className="text-gray-400">Base EXP: {displayPokemon.base_experience || 'N/A'}</span>
+            <span className="text-gray-400">
+              Pokédex ID: #{displayPokemon.id?.toString().padStart(3, '0') || '???'}
+            </span>
+            <span className="text-gray-400">
+              Base EXP: {getPokemonBaseExp(displayPokemon)}
+            </span>
           </div>
         </div>
       </div>

@@ -1,8 +1,17 @@
+/**
+ * Calculator for Pokémon type effectiveness and team analysis
+ */
 class TypeCalculator {
   constructor(typeRelations) {
     this.typeRelations = typeRelations;
   }
 
+  /**
+   * Calculate effectiveness of one type against another
+   * @param {string} attackType - Attacking type
+   * @param {string} defendType - Defending type
+   * @returns {number} Effectiveness multiplier
+   */
   calculateSingleTypeEffectiveness(attackType, defendType) {
     const relations = this.typeRelations[defendType];
     if (!relations) return 1;
@@ -14,6 +23,13 @@ class TypeCalculator {
     return 1;
   }
 
+  /**
+   * Calculate effectiveness against dual types
+   * @param {string} attackType - Attacking type
+   * @param {string} defendType1 - First defending type
+   * @param {string} defendType2 - Second defending type
+   * @returns {number} Combined effectiveness multiplier
+   */
   calculateDualTypeEffectiveness(attackType, defendType1, defendType2 = null) {
     const effectiveness1 = this.calculateSingleTypeEffectiveness(attackType, defendType1);
     
@@ -27,6 +43,11 @@ class TypeCalculator {
     return effectiveness1 * effectiveness2;
   }
 
+  /**
+   * Get all attacking types covered by team
+   * @param {Array} teamPokemon - Team Pokémon array
+   * @returns {Array} Array of attacking types
+   */
   getTeamTypeCoverage(teamPokemon) {
     const attackingTypes = new Set();
     
@@ -39,6 +60,11 @@ class TypeCalculator {
     return Array.from(attackingTypes);
   }
 
+  /**
+   * Analyze team weaknesses to different attack types
+   * @param {Array} teamPokemon - Team Pokémon array
+   * @returns {Object} Weakness analysis
+   */
   analyzeTeamWeaknesses(teamPokemon) {
     const allTypes = Object.keys(this.typeRelations);
     const weaknesses = {};

@@ -1,8 +1,26 @@
-import React from 'react'
-import { X, Sparkles, Menu, GripVertical } from 'lucide-react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import React from 'react';
+import { X, Sparkles, Menu, GripVertical } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { 
+  getPokemonSprite, 
+  getPokemonShinySprite, 
+  getPokemonName, 
+  getPokemonTypes, 
+  getPokemonHP,
+  getIsShiny 
+} from '../../utils/pokemonData';
 
+/**
+ * Sortable team slot component for displaying Pokémon in team
+ * @param {Object} props - Component props
+ * @param {string} props.id - Unique ID for sortable
+ * @param {number} props.index - Slot index
+ * @param {Object} props.pokemon - Pokémon data
+ * @param {Function} props.onRemove - Function to remove Pokémon
+ * @param {Function} props.onShinyToggle - Function to toggle shiny state
+ * @param {Function} props.onInfoOpen - Function to open info modal
+ */
 const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) => {
   const {
     attributes,
@@ -14,13 +32,21 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
   } = useSortable({ 
     id: id,
     disabled: !pokemon
-  })
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 200ms ease', // Smoother transition
-  }
+    transition: transition || 'transform 200ms ease',
+  };
 
+  /**
+   * Handle shiny toggle click
+   */
+  const handleShinyClick = () => {
+    onShinyToggle();
+  };
+
+  // Empty slot state
   if (!pokemon) {
     return (
       <div 
@@ -34,8 +60,12 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
           <p className="text-gray-500 text-sm">Empty</p>
         </div>
       </div>
-    )
+    );
   }
+
+  const isShiny = getIsShiny(pokemon);
+  const hpStat = getPokemonHP(pokemon);
+  const currentSprite = isShiny ? getPokemonShinySprite(pokemon) : getPokemonSprite(pokemon);
 
   return (
     <div
@@ -59,9 +89,13 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
       {/* Action Buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
         <button
-          onClick={onShinyToggle}
-          className="bg-[#fbbf24] hover:bg-[#f59e0b] text-white rounded p-1 transition-colors"
-          title="Toggle Shiny"
+          onClick={handleShinyClick}
+          className={`p-1 rounded transition-colors ${
+            isShiny 
+              ? 'bg-[#fbbf24] text-black' 
+              : 'bg-[#374151] hover:bg-[#4b5563] text-white'
+          }`}
+          title={isShiny ? "Switch to Normal" : "Switch to Shiny"}
         >
           <Sparkles size={12} />
         </button>
@@ -84,38 +118,40 @@ const TeamSlot = ({ id, index, pokemon, onRemove, onShinyToggle, onInfoOpen }) =
       {/* Pokémon Sprite */}
       <div className="flex justify-center mb-3 pt-2">
         <img
-          src={pokemon._isShiny && pokemon.sprites.front_shiny 
-            ? pokemon.sprites.front_shiny 
-            : pokemon.sprites.front_default}
-          alt={pokemon.name}
+          src={currentSprite}
+          alt={getPokemonName(pokemon)}
           className="w-20 h-20 object-contain"
+          key={`sprite-${pokemon.id}-${isShiny}`} // Force re-render when shiny changes
         />
       </div>
 
       {/* Pokémon Name */}
       <h3 className="text-white font-bold text-center capitalize mb-2">
-        {pokemon.name}
-        {pokemon._isShiny && <span className="text-[#fbbf24] ml-1">✨</span>}
+        {getPokemonName(pokemon)}
+        {isShiny && <span className="text-[#fbbf24] ml-1">✨</span>}
       </h3>
 
       {/* Types */}
       <div className="flex justify-center gap-1 mb-2">
-        {pokemon.types.map((typeInfo) => (
-          <span
-            key={typeInfo.type.name}
-            className={`type-badge bg-${typeInfo.type.name} text-xs px-2 py-1`}
-          >
-            {typeInfo.type.name}
-          </span>
-        ))}
+        {getPokemonTypes(pokemon).map((typeInfo) => {
+          const typeName = typeInfo.type?.name || typeInfo.name || 'unknown';
+          return (
+            <span
+              key={typeName}
+              className={`type-badge bg-${typeName} text-xs px-2 py-1`}
+            >
+              {typeName}
+            </span>
+          );
+        })}
       </div>
 
       {/* Stats Summary */}
       <div className="text-xs text-gray-400 text-center">
-        <p>HP: {pokemon.stats.find(s => s.name === 'hp')?.base_stat || 0}</p>
+        <p>HP: {hpStat}</p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default TeamSlot
+export default TeamSlot;
