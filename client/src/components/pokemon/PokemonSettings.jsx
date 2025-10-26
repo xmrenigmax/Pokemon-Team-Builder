@@ -431,7 +431,7 @@ const PokemonSettings = ({
   /**
    * Handle item change
    */
-  const handleItemChange = (itemName) => {
+  const handleItemChange = async (itemName) => {
     console.log('Changing item to:', itemName);
     const selectedItem = availableItems.find(item => item.name === itemName);
     const newOptions = { 
@@ -441,6 +441,9 @@ const PokemonSettings = ({
     };
     
     onOptionsChange(newOptions);
+    setHasChanges(true);
+    // Recalculate stats after item change
+    await calculateStatsPreview();
   };
 
   /**
@@ -520,10 +523,17 @@ const PokemonSettings = ({
       const battleData = await pokemonAPI.getBattlePokemon(pokemonId, {
         level: options.level,
         nature: options.nature,
-        evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } // Default EVs
+        evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, // Default EVs
+        item: options.item, // Include held item
+        moves: options.moves?.map(m => m.name) || [] // Include moves
       });
       
       setStatsPreview(battleData?.calculatedStats);
+      // Update options with calculated stats for parent component
+      onOptionsChange({
+        ...options,
+        calculatedStats: battleData?.calculatedStats
+      });
       console.log('Stats preview calculated:', battleData?.calculatedStats);
       
     } catch (error) {
@@ -531,6 +541,11 @@ const PokemonSettings = ({
       // Set fallback stats based on base stats
       const fallbackStats = calculateFallbackStats();
       setStatsPreview(fallbackStats);
+      // Update options with fallback stats
+      onOptionsChange({
+        ...options,
+        calculatedStats: fallbackStats
+      });
     }
   };
 
@@ -560,22 +575,28 @@ const PokemonSettings = ({
   /**
    * Handle level change with validation
    */
-  const handleLevelChange = (level) => {
+  const handleLevelChange = async (level) => {
     const newLevel = Math.max(1, Math.min(100, parseInt(level) || 50));
     onOptionsChange({ ...options, level: newLevel });
+    setHasChanges(true);
+    // Recalculate stats after level change
+    await calculateStatsPreview();
   };
 
   /**
    * Handle nature change
    */
-  const handleNatureChange = (nature) => {
+  const handleNatureChange = async (nature) => {
     onOptionsChange({ ...options, nature });
+    setHasChanges(true);
+    // Recalculate stats after nature change
+    await calculateStatsPreview();
   };
 
   /**
    * Handle move selection with validation
    */
-  const handleMoveSelect = (moveIndex, selectedMove) => {
+  const handleMoveSelect = async (moveIndex, selectedMove) => {
     const newMoves = [...(options.moves || Array(4).fill(createEmptyMove()))];
     
     // Check if move is already selected
@@ -590,8 +611,11 @@ const PokemonSettings = ({
     
     newMoves[moveIndex] = selectedMove;
     onOptionsChange({ ...options, moves: newMoves });
+    setHasChanges(true);
     
     console.log(`Selected move: ${selectedMove.name} for slot ${moveIndex}`);
+    // Trigger UI update
+    await calculateStatsPreview();
   };
 
   /**
