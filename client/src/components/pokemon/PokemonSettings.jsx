@@ -95,14 +95,48 @@ const PokemonSettings = ({
   const [loadingItems, setLoadingItems] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [localOptions, setLocalOptions] = useState(options);
-  /**
-   * Load all required data when component mounts or Pokémon changes
-   */
 
+  // Update local options when props change
   useEffect(() => {
     setLocalOptions(options);
   }, [options]);
 
+  // Debounced version of calculateStatsPreview - MOVE THIS UP
+  const debouncedCalculateStats = useCallback(
+    debounce(async () => {
+      await calculateStatsPreview();
+    }, 100),
+    [pokemon, selectedForm, localOptions]
+  );
+
+  // Debounced team update
+  const debouncedTeamUpdate = useCallback(
+    debounce(() => {
+      if (isEditing && teamIndex !== undefined && onOptionsChange) {
+        onOptionsChange(localOptions, true);
+      }
+    }, 300),
+    [localOptions, isEditing, teamIndex, onOptionsChange]
+  );
+
+  /**
+   * Handle options change with immediate updates for team Pokémon
+   */
+  const handleOptionsChange = useCallback((newOptions) => {
+    setLocalOptions(newOptions);
+    setHasChanges(true);
+    
+    // If this is a team Pokémon, update immediately
+    if (isEditing && teamIndex !== undefined) {
+      onOptionsChange(newOptions, true);
+    } else {
+      onOptionsChange(newOptions);
+    }
+  }, [isEditing, teamIndex, onOptionsChange]);
+
+  /**
+   * Load all required data when component mounts or Pokémon changes
+   */
   useEffect(() => {
     if (!pokemon?.id) return;
 
@@ -145,7 +179,7 @@ const PokemonSettings = ({
       updateAvailableMoves();
       calculateStatsPreview();
     }
-  }, [options.level, allMoves, options.nature, selectedForm]);
+  }, [localOptions.level, allMoves, localOptions.nature, selectedForm]);
 
   /**
    * Filter moves based on search query
@@ -167,26 +201,15 @@ const PokemonSettings = ({
    * Track changes in options and update stats
    */
   useEffect(() => {
-  // Set hasChanges to true when any option changes (except initial load)
-  if (allMoves.length > 0) {
-    setHasChanges(true);
-    // For team Pokémon, update the context immediately for dynamic updates
-    if (isEditing && pokemon.teamIndex !== undefined) {
-      // This ensures team Pokémon get updated in real-time
-      debouncedTeamUpdate();
+    // Set hasChanges to true when any option changes (except initial load)
+    if (allMoves.length > 0) {
+      setHasChanges(true);
+      // For team Pokémon, update the context immediately for dynamic updates
+      if (isEditing && teamIndex !== undefined) {
+        debouncedTeamUpdate();
+      }
     }
-  }
-}, [options, selectedForm]);
-
-  // Debounced version of calculateStatsPreview
-  const debouncedTeamUpdate = useCallback(
-  debounce(() => {
-    if (isEditing && pokemon.teamIndex !== undefined && onOptionsChange) {
-      onOptionsChange(options, true); // Pass true to indicate immediate update
-    }
-  }, 300),
-  [options, isEditing, pokemon?.teamIndex, onOptionsChange]
-);
+  }, [localOptions, selectedForm]);
 
   /**
    * Load all moves the Pokémon can learn
@@ -278,9 +301,9 @@ const PokemonSettings = ({
       // Determine which form to select
       let formToSet = null;
       
-      if (isEditing && options.form) {
+      if (isEditing && localOptions.form) {
         // Use existing form when editing
-        formToSet = options.form;
+        formToSet = localOptions.form;
         console.log('Using existing form:', formToSet.form_name);
       } else {
         // Select default form (standard -> regional -> mega)
@@ -291,9 +314,9 @@ const PokemonSettings = ({
       if (formToSet) {
         setSelectedForm(formToSet);
         // Update options with form data if not already set
-        if (!isEditing || !options.form) {
-          onOptionsChange({
-            ...options,
+        if (!isEditing || !localOptions.form) {
+          handleOptionsChange({
+            ...localOptions,
             form: formToSet,
             formName: formToSet.form_name
           });
@@ -354,7 +377,7 @@ const PokemonSettings = ({
 
     // Filter moves learnable at current level
     const learnableLevelMoves = allMoves.filter(move => 
-      move.levelLearned <= options.level
+      move.levelLearned <= localOptions.level
     );
     
     // Combine level-up and TM moves
@@ -371,17 +394,17 @@ const PokemonSettings = ({
     setAvailableMoves(uniqueMoves);
     setFilteredMoves(uniqueMoves);
     
-    console.log(`Available moves at level ${options.level}: ${uniqueMoves.length}`);
+    console.log(`Available moves at level ${localOptions.level}: ${uniqueMoves.length}`);
     
     // Update current moves with available moves
     updateCurrentMoves(uniqueMoves);
-  }, [allMoves, tmMoves, options.level]);
+  }, [allMoves, tmMoves, localOptions.level]);
 
   /**
    * Update current moves based on available moves
    */
   const updateCurrentMoves = useCallback((learnableMoves) => {
-    const currentMoves = options.moves || Array(4).fill(createEmptyMove());
+    const currentMoves = localOptions.moves || Array(4).fill(createEmptyMove());
     const newMoves = [...currentMoves];
     let hasChanges = false;
 
@@ -418,12 +441,12 @@ const PokemonSettings = ({
     }
 
     if (hasChanges) {
-      onOptionsChange({ 
-        ...options, 
+      handleOptionsChange({ 
+        ...localOptions, 
         moves: newMoves 
       });
     }
-  }, [options, onOptionsChange]);
+  }, [localOptions, handleOptionsChange]);
 
   /**
    * Handle form change and update options
@@ -433,12 +456,12 @@ const PokemonSettings = ({
     setSelectedForm(form);
     
     const newOptions = {
-      ...options,
+      ...localOptions,
       form: form,
       formName: form.form_name
     };
     
-    onOptionsChange(newOptions);
+    handleOptionsChange(newOptions);
     
     // Reload moves for the new form if it has a different ID
     if (form.id !== pokemon.id) {
@@ -449,18 +472,6 @@ const PokemonSettings = ({
     // Recalculate stats for the new form
     await calculateStatsPreview();
   };
-
-  const handleOptionsChange = useCallback((newOptions) => {
-    setLocalOptions(newOptions);
-    setHasChanges(true);
-    
-    // If this is a team Pokémon, update immediately
-    if (isEditing && teamIndex !== undefined) {
-      onOptionsChange(newOptions, true);
-    } else {
-      onOptionsChange(newOptions);
-    }
-  }, [isEditing, teamIndex, onOptionsChange]);
 
   /**
    * Handle item change
@@ -550,33 +561,57 @@ const PokemonSettings = ({
     try {
       // Use selected form if available, otherwise use base pokemon
       const pokemonId = selectedForm?.id || pokemon.id;
+      
+      // Add safety check for pokemonId
+      if (!pokemonId) {
+        console.warn('No Pokémon ID available for stats calculation');
+        const fallbackStats = calculateFallbackStats();
+        setStatsPreview(fallbackStats);
+        handleOptionsChange({
+          ...localOptions,
+          calculatedStats: fallbackStats
+        });
+        return;
+      }
+      
       const battleData = await pokemonAPI.getBattlePokemon(pokemonId, {
-        level: options.level,
-        nature: options.nature,
-        evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, // Default EVs
-        item: options.item, // Include held item
-        moves: options.moves?.map(m => m.name) || [] // Include moves
+        level: localOptions.level,
+        nature: localOptions.nature,
+        evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+        item: localOptions.item,
+        moves: localOptions.moves?.map(m => m.name) || []
       });
       
-      setStatsPreview(battleData?.calculatedStats);
-      // Update options with calculated stats for parent component
-      onOptionsChange({
-        ...options,
-        calculatedStats: battleData?.calculatedStats
-      });
-
-      console.log('Stats preview calculated:', battleData?.calculatedStats);
-      onOptionsChange(updatedOptions);
+      // Check if battleData is valid
+      if (battleData?.calculatedStats) {
+        setStatsPreview(battleData.calculatedStats);
+        const updatedOptions = {
+          ...localOptions,
+          calculatedStats: battleData.calculatedStats
+        };
+        handleOptionsChange(updatedOptions);
+        console.log('Stats preview calculated:', battleData.calculatedStats);
+      } else {
+        // If API returns invalid data, use fallback
+        console.warn('Invalid battle data received, using fallback stats');
+        const fallbackStats = calculateFallbackStats();
+        setStatsPreview(fallbackStats);
+        const updatedOptions = {
+          ...localOptions,
+          calculatedStats: fallbackStats
+        };
+        handleOptionsChange(updatedOptions);
+      }
+      
     } catch (error) {
       console.error('Error calculating stats preview:', error);
-      // Set fallback stats based on base stats
       const fallbackStats = calculateFallbackStats();
       setStatsPreview(fallbackStats);
-      // Update options with fallback stats
-      onOptionsChange({
-        ...options,
+      const updatedOptions = {
+        ...localOptions,
         calculatedStats: fallbackStats
-      });
+      };
+      handleOptionsChange(updatedOptions);
     }
   };
 
@@ -584,40 +619,38 @@ const PokemonSettings = ({
    * Calculate fallback stats when API fails
    */
   const calculateFallbackStats = () => {
-  const baseStats = selectedForm?.stats || pokemon?.stats || [];
-  const level = options.level || 50;
-  
-  const stats = {};
-  
-  // Check if baseStats is valid and has items
-  if (!baseStats || !Array.isArray(baseStats) || baseStats.length === 0) {
-    // Return empty stats object if no stats available
-    return {
-      hp: 0,
-      attack: 0,
-      defense: 0,
-      'special-attack': 0,
-      'special-defense': 0,
-      speed: 0
-    };
-  }
-  
-  baseStats.forEach(stat => {
-    if (!stat) return; // Skip if stat is undefined
+    const baseStats = selectedForm?.stats || pokemon?.stats || [];
+    const level = localOptions.level || 50;
     
-    const statName = stat.stat?.name || stat.name || 'unknown';
-    const baseStat = stat.base_stat || 0;
+    const stats = {};
     
-    // Simple stat calculation formula (HP is different)
-    if (statName === 'hp') {
-      stats[statName] = Math.floor((2 * baseStat * level) / 100) + level + 10;
-    } else {
-      stats[statName] = Math.floor((2 * baseStat * level) / 100) + 5;
+    // Check if baseStats is valid and has items
+    if (!baseStats || !Array.isArray(baseStats) || baseStats.length === 0) {
+      return {
+        hp: 0,
+        attack: 0,
+        defense: 0,
+        'special-attack': 0,
+        'special-defense': 0,
+        speed: 0
+      };
     }
-  });
-  
-  return stats;
-};
+    
+    baseStats.forEach(stat => {
+      if (!stat) return;
+      
+      const statName = stat.stat?.name || stat.name || 'unknown';
+      const baseStat = stat.base_stat || 0;
+      
+      if (statName === 'hp') {
+        stats[statName] = Math.floor((2 * baseStat * level) / 100) + level + 10;
+      } else {
+        stats[statName] = Math.floor((2 * baseStat * level) / 100) + 5;
+      }
+    });
+    
+    return stats;
+  };
 
   /**
    * Handle level change with validation
@@ -634,7 +667,7 @@ const PokemonSettings = ({
   /**
    * Handle nature change
    */
-   const handleNatureChange = (nature) => {
+  const handleNatureChange = (nature) => {
     const newOptions = { ...localOptions, nature };
     handleOptionsChange(newOptions);
     debouncedCalculateStats();
@@ -644,7 +677,7 @@ const PokemonSettings = ({
    * Handle move selection with validation
    */
   const handleMoveSelect = async (moveIndex, selectedMove) => {
-    const newMoves = [...(options.moves || Array(4).fill(createEmptyMove()))];
+    const newMoves = [...(localOptions.moves || Array(4).fill(createEmptyMove()))];
     
     // Check if move is already selected
     const isAlreadySelected = newMoves.some((move, idx) => 
@@ -657,8 +690,8 @@ const PokemonSettings = ({
     }
     
     newMoves[moveIndex] = selectedMove;
-    onOptionsChange({ ...options, moves: newMoves });
-    setHasChanges(true);
+    const newOptions = { ...localOptions, moves: newMoves };
+    handleOptionsChange(newOptions);
     
     console.log(`Selected move: ${selectedMove.name} for slot ${moveIndex}`);
     // Trigger UI update
@@ -669,9 +702,10 @@ const PokemonSettings = ({
    * Clear a move slot
    */
   const handleMoveClear = (moveIndex) => {
-    const newMoves = [...(options.moves || [])];
+    const newMoves = [...(localOptions.moves || [])];
     newMoves[moveIndex] = createEmptyMove();
-    onOptionsChange({ ...options, moves: newMoves });
+    const newOptions = { ...localOptions, moves: newMoves };
+    handleOptionsChange(newOptions);
   };
 
   /**
@@ -708,7 +742,7 @@ const PokemonSettings = ({
    * Count locked moves (above current level)
    */
   const getLockedMovesCount = () => {
-    return allMoves.filter(move => move.levelLearned > options.level).length;
+    return allMoves.filter(move => move.levelLearned > localOptions.level).length;
   };
 
   /**
@@ -728,8 +762,8 @@ const PokemonSettings = ({
    * Get selected item effect description
    */
   const getSelectedItemEffect = () => {
-    if (!options.item) return '';
-    const selectedItem = availableItems.find(item => item.name === options.item);
+    if (!localOptions.item) return '';
+    const selectedItem = availableItems.find(item => item.name === localOptions.item);
     return selectedItem?.effect || 'Item effect description not available.';
   };
 
@@ -748,7 +782,7 @@ const PokemonSettings = ({
               )}
             </h2>
             <p className="text-gray-400 text-sm">
-              Level {options.level} • {availableMoves.length} moves available
+              Level {localOptions.level} • {availableMoves.length} moves available
               {getLockedMovesCount() > 0 && ` • ${getLockedMovesCount()} moves locked`}
               {tmMoves.length > 0 && ` • ${tmMoves.length} TM moves`}
               {hasChanges && ` • Unsaved changes`}
@@ -838,6 +872,7 @@ const PokemonSettings = ({
     </div>
   );
 };
+
 // Additional sub-components for better organization
 
 /**
