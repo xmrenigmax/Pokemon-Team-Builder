@@ -28,13 +28,29 @@ export const getPokemonName = (pokemon) => {
 /**
  * Get Pokémon types array with form handling
  */
+/**
+ * Get Pokémon types array with form handling
+ */
 export const getPokemonTypes = (pokemon) => {
   if (!pokemon) return [];
   
-  // Use form types if available, otherwise base types
-  if (pokemon.form && pokemon.form.types && pokemon.form.types.length > 0) {
-    return pokemon.form.types;
+  // Use form types if available and properly structured
+  if (pokemon.form && pokemon.form.types && Array.isArray(pokemon.form.types)) {
+    // Check if form types are in the correct format
+    const formTypes = pokemon.form.types.map(type => {
+      if (typeof type === 'string') {
+        return { type: { name: type } };
+      } else if (type.type && typeof type.type === 'string') {
+        return { type: { name: type.type } };
+      } else if (type.type && type.type.name) {
+        return type;
+      }
+      return { type: { name: 'unknown' } };
+    });
+    return formTypes;
   }
+  
+  // Fallback to base types
   return pokemon.types || [];
 };
 
