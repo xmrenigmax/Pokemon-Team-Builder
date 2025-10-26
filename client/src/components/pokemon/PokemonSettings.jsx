@@ -584,24 +584,40 @@ const PokemonSettings = ({
    * Calculate fallback stats when API fails
    */
   const calculateFallbackStats = () => {
-    const baseStats = selectedForm?.stats || pokemon.stats;
-    const level = options.level || 50;
+  const baseStats = selectedForm?.stats || pokemon?.stats || [];
+  const level = options.level || 50;
+  
+  const stats = {};
+  
+  // Check if baseStats is valid and has items
+  if (!baseStats || !Array.isArray(baseStats) || baseStats.length === 0) {
+    // Return empty stats object if no stats available
+    return {
+      hp: 0,
+      attack: 0,
+      defense: 0,
+      'special-attack': 0,
+      'special-defense': 0,
+      speed: 0
+    };
+  }
+  
+  baseStats.forEach(stat => {
+    if (!stat) return; // Skip if stat is undefined
     
-    const stats = {};
-    baseStats.forEach(stat => {
-      const statName = stat.stat?.name || stat.name;
-      const baseStat = stat.base_stat || 0;
-      
-      // Simple stat calculation formula (HP is different)
-      if (statName === 'hp') {
-        stats[statName] = Math.floor((2 * baseStat * level) / 100) + level + 10;
-      } else {
-        stats[statName] = Math.floor((2 * baseStat * level) / 100) + 5;
-      }
-    });
+    const statName = stat.stat?.name || stat.name || 'unknown';
+    const baseStat = stat.base_stat || 0;
     
-    return stats;
-  };
+    // Simple stat calculation formula (HP is different)
+    if (statName === 'hp') {
+      stats[statName] = Math.floor((2 * baseStat * level) / 100) + level + 10;
+    } else {
+      stats[statName] = Math.floor((2 * baseStat * level) / 100) + 5;
+    }
+  });
+  
+  return stats;
+};
 
   /**
    * Handle level change with validation
